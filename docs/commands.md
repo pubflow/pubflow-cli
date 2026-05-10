@@ -7,6 +7,18 @@ The Pubflow CLI helps you create apps, add project context, configure env vars, 
 Guided flow:
 
 ```bash
+pubflow init
+```
+
+`pubflow init` asks whether you want a new project or want to add Pubflow to the current project.
+
+For a new project, it opens the starter selector.
+
+For an existing project, it opens an add selector for context, env, client, and middleware.
+
+Project-only guided flow:
+
+```bash
 pubflow create
 ```
 

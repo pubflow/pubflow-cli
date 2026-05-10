@@ -54,6 +54,19 @@ pubflow docs [topic]
 pubflow hints [topic]
 ```
 
+`pubflow init` is the friendliest entry point. It asks whether you are starting a new project or adding Pubflow to the current project.
+
+For a new project, it opens the starter selector.
+
+For an existing project, it lets you add:
+
+```txt
+AI context
+Env vars
+Flowfull client
+Bridge middleware
+```
+
 ## Examples
 
 ```bash

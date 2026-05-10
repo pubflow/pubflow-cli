@@ -61,7 +61,7 @@ const program = new Command();
 program
   .name('pubflow')
   .description('Official Pubflow Platform CLI to create apps and manage projects.')
-  .version('0.3.0');
+  .version('0.4.0');
 
 program
   .command('init')
@@ -209,6 +209,34 @@ program.parseAsync(process.argv).catch((error) => {
 async function runInit(options) {
   printHeader();
 
+  const pathAnswer = await prompts({
+    type: 'select',
+    name: 'path',
+    message: 'What are you working on?',
+    choices: [
+      {
+        title: 'New project',
+        description: 'Create a Pubflow starter kit.',
+        value: 'new',
+      },
+      {
+        title: 'Current project',
+        description: 'Add Pubflow pieces to this existing project.',
+        value: 'current',
+      },
+    ],
+  });
+
+  if (!pathAnswer.path) return;
+  if (pathAnswer.path === 'current') {
+    await runExistingProjectInit(options);
+    return;
+  }
+
+  await runNewProjectInit(options);
+}
+
+async function runNewProjectInit(options) {
   const categoryAnswer = await prompts({
     type: 'select',
     name: 'category',
@@ -266,6 +294,64 @@ async function runInit(options) {
     install: options.install === false ? false : setupAnswer.install,
     git: options.git === false ? false : setupAnswer.git,
   });
+}
+
+async function runExistingProjectInit(options) {
+  const project = await detectProjectInfo(process.cwd());
+  if (project.label) {
+    console.log(`${colors.dim('Detected:')} ${project.label}${project.packageManager ? ` (${project.packageManager})` : ''}`);
+    console.log('');
+  }
+
+  const answer = await prompts({
+    type: 'multiselect',
+    name: 'actions',
+    message: 'What do you want to add?',
+    choices: [
+      {
+        title: 'AI context',
+        description: 'Install compact Pubflow context for coding agents.',
+        value: 'context',
+        selected: true,
+      },
+      {
+        title: 'Env vars',
+        description: 'Add FLOWLESS_URL and BRIDGE_VALIDATION_SECRET.',
+        value: 'env',
+        selected: true,
+      },
+      {
+        title: 'Flowfull client',
+        description: 'Install the recommended client for this project.',
+        value: 'client',
+      },
+      {
+        title: 'Bridge middleware',
+        description: 'Add backend middleware for Bridge Validation.',
+        value: 'middleware',
+      },
+    ],
+    hint: '- Space to select. Enter to continue.',
+  });
+
+  if (!answer.actions?.length) return;
+
+  if (answer.actions.includes('context')) {
+    await runContextInit({ yes: true });
+  }
+  if (answer.actions.includes('env')) {
+    await runAddEnv({ yes: true });
+  }
+  if (answer.actions.includes('client')) {
+    await runAddClient(undefined, { yes: true, install: true });
+  }
+  if (answer.actions.includes('middleware')) {
+    await runAddMiddleware({ yes: true });
+  }
+
+  console.log('');
+  console.log(colors.green('Current project setup complete.'));
+  console.log('Run `pubflow inspect` any time to check your setup.');
 }
 
 async function runContextInit(options) {
