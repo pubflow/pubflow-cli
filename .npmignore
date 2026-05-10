@@ -1,7 +1,5 @@
-node_modules/
-dist/
+docs/
 .env
 .npmrc
 .DS_Store
 *.log
-.npmrc

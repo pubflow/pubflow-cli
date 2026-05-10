@@ -1,0 +1,163 @@
+# Pubflow CLI Commands
+
+The Pubflow CLI helps you create apps, add project context, configure env vars, inspect setup, and jump into docs.
+
+## Create A Project
+
+Guided flow:
+
+```bash
+pubflow create
+```
+
+Direct flow:
+
+```bash
+pubflow create react my-web
+pubflow create react-native my-mobile
+pubflow create node-backend my-api
+pubflow create python-backend my-api
+pubflow create go-backend my-api
+pubflow create elixir-backend my-api
+```
+
+Skip setup steps:
+
+```bash
+pubflow create python-backend my-api --no-install --no-git
+```
+
+## List Starters
+
+```bash
+pubflow list
+```
+
+Shows supported frontend and backend starter kits.
+
+## Add AI Context
+
+Recommended default:
+
+```bash
+pubflow context init
+```
+
+No-prompt default:
+
+```bash
+pubflow context init --yes
+```
+
+Full context folder:
+
+```bash
+pubflow context init --full
+```
+
+Reference specific agent files:
+
+```bash
+pubflow context init --agents
+pubflow context init --cursor
+pubflow context init --copilot
+pubflow context init --claude
+pubflow context init --all
+```
+
+## Add Env Vars
+
+```bash
+pubflow add env
+```
+
+Adds Pubflow env vars to `.env.example` and can optionally update `.env`.
+
+Default variables:
+
+```bash
+FLOWLESS_URL=https://your-flowless-instance.com
+BRIDGE_VALIDATION_SECRET=replace-me
+PUBFLOW_VALIDATION_MODE=standard
+PUBFLOW_SESSION_COOKIE=session_id
+PUBFLOW_REQUEST_TIMEOUT_MS=5000
+```
+
+Bridge validation uses:
+
+```txt
+POST {FLOWLESS_URL}/auth/bridge/validate
+X-Session-ID: <user-session-id>
+X-Bridge-Secret: <BRIDGE_VALIDATION_SECRET>
+```
+
+`X-Session-ID` carries the user's opaque session. `BRIDGE_VALIDATION_SECRET` is sent as the required `X-Bridge-Secret` header. Prefer sending it from Flowfull/backend; frontend/mobile usage should only be used when the project intentionally supports a public/client-side bridge validation design.
+
+## Flowless And Flowfull Flow
+
+Flowless is created from Pubflow Platform and provides managed auth.
+
+Frontend flow:
+
+1. Call Flowless, for example `POST /auth/login`.
+2. Store the returned `sessionId` in local/secure storage.
+3. Send the session to Flowfull APIs, usually as `X-Session-ID`.
+
+Flowfull backend flow:
+
+1. Middleware reads session from `X-Session-ID`, cookie, or an app-selected source.
+2. Middleware calls `POST {FLOWLESS_URL}/auth/bridge/validate`.
+3. Middleware sends `X-Bridge-Secret`.
+4. Route handlers use normalized auth context.
+
+Recommended middleware:
+
+```txt
+optionalAuth()
+requireAuth()
+requireUserType()
+requirePermission()
+requireAdmin()
+```
+
+## Inspect A Project
+
+```bash
+pubflow inspect
+```
+
+Checks for:
+
+- `.pubflow/context`
+- agent/editor references
+- `.env.example`
+- `FLOWLESS_URL`
+- bridge validation secret
+- project manifests
+- detected stack
+
+## Docs
+
+```bash
+pubflow docs
+pubflow docs bridge
+pubflow docs context
+pubflow docs starters
+pubflow docs flowfull
+pubflow docs flowless
+pubflow docs clients
+```
+
+Open the first docs link:
+
+```bash
+pubflow docs bridge --open
+```
+
+## Doctor
+
+```bash
+pubflow doctor
+```
+
+Checks common local tools: Node.js, npm, Bun, git, Python, Go, and Elixir Mix.

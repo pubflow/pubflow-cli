@@ -1,11 +1,16 @@
 {
   "name": "pubflow",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Official Pubflow Platform CLI to create apps and manage projects.",
   "type": "module",
   "bin": {
     "pubflow": "./src/cli.js"
   },
+  "files": [
+    "src",
+    "context",
+    "README.md"
+  ],
   "scripts": {
     "start": "node ./src/cli.js",
     "pubflow": "node ./src/cli.js",
