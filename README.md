@@ -45,9 +45,13 @@ pubflow context init --cursor
 pubflow context init --copilot
 pubflow context init --claude
 pubflow context init --all
+pubflow add context
 pubflow add env
+pubflow add client [client]
+pubflow add middleware
 pubflow inspect
 pubflow docs [topic]
+pubflow hints [topic]
 ```
 
 ## Examples
@@ -60,9 +64,13 @@ pubflow create react my-web
 pubflow create react-native my-mobile-app
 pubflow context init
 pubflow context init --full --all
+pubflow add context
 pubflow add env
+pubflow add client react
+pubflow add middleware
 pubflow inspect
 pubflow docs bridge
+pubflow hints clients
 ```
 
 ## AI Context
@@ -136,3 +144,4 @@ npm run pubflow -- list
 
 - [Commands](./docs/commands.md)
 - [AI Context](./docs/context.md)
+- [Add Workflows](./docs/add-workflows.md)

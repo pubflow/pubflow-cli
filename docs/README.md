@@ -8,3 +8,4 @@ Start here:
 
 - [Commands](./commands.md)
 - [AI Context](./context.md)
+- [Add Workflows](./add-workflows.md)

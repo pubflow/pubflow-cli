@@ -93,6 +93,42 @@ X-Bridge-Secret: <BRIDGE_VALIDATION_SECRET>
 
 `X-Session-ID` carries the user's opaque session. `BRIDGE_VALIDATION_SECRET` is sent as the required `X-Bridge-Secret` header. Prefer sending it from Flowfull/backend; frontend/mobile usage should only be used when the project intentionally supports a public/client-side bridge validation design.
 
+## Add Client
+
+Interactive:
+
+```bash
+pubflow add client
+```
+
+Direct:
+
+```bash
+pubflow add client react
+pubflow add client react-native
+pubflow add client universal-js
+pubflow add client python
+pubflow add client go
+pubflow add client elixir
+```
+
+The CLI detects the project and recommends the best client. JavaScript installs use `@latest` and adapt to npm, bun, pnpm, or yarn when detected.
+
+## Add Middleware
+
+```bash
+pubflow add middleware
+```
+
+Adds Bridge Validation middleware for supported backend projects:
+
+- Node / TypeScript
+- Python / FastAPI
+- Go / Gin
+- Elixir / Phoenix
+
+Generated middleware uses a `bridge` namespace first and falls back to `pubflow` if needed.
+
 ## Flowless And Flowfull Flow
 
 Flowless is created from Pubflow Platform and provides managed auth.
@@ -153,6 +189,20 @@ Open the first docs link:
 ```bash
 pubflow docs bridge --open
 ```
+
+## Hints
+
+Show friendly next-step hints:
+
+```bash
+pubflow hints
+pubflow hints clients
+pubflow hints middleware
+pubflow hints env
+pubflow hints context
+```
+
+These hints are also shown at the end of `pubflow add client` and `pubflow add middleware`.
 
 ## Doctor
 
