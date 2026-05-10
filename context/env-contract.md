@@ -7,28 +7,24 @@ Use env vars for all Pubflow connection details, secrets, validation modes, and 
 ```bash
 FLOWLESS_URL=https://your-flowless-instance.com
 BRIDGE_VALIDATION_SECRET=replace-me
+FLOWFULL_API_URL=http://localhost:3001
 ```
 
 Meaning:
 
 - `FLOWLESS_URL`: base URL of the Flowless trust layer.
 - `BRIDGE_VALIDATION_SECRET`: required bridge validation secret sent as `X-Bridge-Secret`.
+- `FLOWFULL_API_URL`: base URL of the current Flowfull/backend API.
 
 ## Recommended Backend Env Vars
 
 ```bash
 PUBFLOW_VALIDATION_MODE=standard
-PUBFLOW_SESSION_COOKIE=session_id
-PUBFLOW_SESSION_HEADER=authorization
-PUBFLOW_REQUEST_TIMEOUT_MS=5000
 ```
 
 Meaning:
 
 - `PUBFLOW_VALIDATION_MODE`: default route validation mode.
-- `PUBFLOW_SESSION_COOKIE`: cookie name for session lookup.
-- `PUBFLOW_SESSION_HEADER`: optional header lookup.
-- `PUBFLOW_REQUEST_TIMEOUT_MS`: timeout for Flowless bridge calls.
 
 ## Bridge Endpoint Contract
 
@@ -49,21 +45,29 @@ X-Bridge-Secret: <BRIDGE_VALIDATION_SECRET>
 
 ## Frontend Env Vars
 
-Frontend apps may need public Flowless or API URLs, depending on the client package.
+Frontend apps usually need public Flowless, Flowfull API, and bridge validation env vars, depending on the client package.
 
 Use public prefixes required by the framework:
 
 ```bash
-VITE_API_URL=http://localhost:3001
-EXPO_PUBLIC_API_URL=http://localhost:3001
-NEXT_PUBLIC_API_URL=http://localhost:3001
+VITE_FLOWLESS_URL=https://your-flowless-instance.com
+VITE_FLOWFULL_API_URL=http://localhost:3001
+VITE_BRIDGE_VALIDATION_SECRET=replace-me
+
+EXPO_PUBLIC_FLOWLESS_URL=https://your-flowless-instance.com
+EXPO_PUBLIC_FLOWFULL_API_URL=http://localhost:3001
+EXPO_PUBLIC_BRIDGE_VALIDATION_SECRET=replace-me
+
+NEXT_PUBLIC_FLOWLESS_URL=https://your-flowless-instance.com
+NEXT_PUBLIC_FLOWFULL_API_URL=http://localhost:3001
+NEXT_PUBLIC_BRIDGE_VALIDATION_SECRET=replace-me
 ```
 
 Rules:
 
-- Public frontend env vars must never contain bridge secrets.
-- Only expose URLs and non-secret config.
-- Session validation still belongs in Flowfull.
+- Use the prefix required by the frontend framework.
+- `*_BRIDGE_VALIDATION_SECRET` is required only when the frontend/client intentionally performs bridge validation.
+- Prefer Flowfull/backend validation for server-owned authorization.
 
 ## Env File Pattern
 
@@ -87,6 +91,7 @@ Backends should validate required env vars at startup:
 
 - Missing `FLOWLESS_URL`: fail startup.
 - Missing `BRIDGE_VALIDATION_SECRET`: fail backend startup or block Bridge Validation setup.
+- Missing `FLOWFULL_API_URL`: block workflows that need to call the current Flowfull API.
 - Invalid `PUBFLOW_VALIDATION_MODE`: fail startup or fallback explicitly.
 
 ## Agent Rules
@@ -95,6 +100,6 @@ When generating code:
 
 - Read env vars through the project's existing config helper if one exists.
 - Do not access `process.env` everywhere if the starter has a config module.
-- Do not add secrets to frontend code.
+- Do not invent hidden frontend secrets; public-prefixed frontend env vars are visible to users by design.
 - Do not invent new env names unless the project already uses different names.
 - Update `.env.example` whenever a new env var is required.

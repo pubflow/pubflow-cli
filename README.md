@@ -54,6 +54,14 @@ pubflow docs [topic]
 pubflow hints [topic]
 ```
 
+You can also use the short alias:
+
+```bash
+pbfl init
+pbfl add env
+pbfl inspect
+```
+
 `pubflow init` is the friendliest entry point. It asks whether you are starting a new project or adding Pubflow to the current project.
 
 For a new project, it opens the starter selector.
@@ -84,6 +92,27 @@ pubflow add middleware
 pubflow inspect
 pubflow docs bridge
 pubflow hints clients
+```
+
+## Env Vars
+
+`pubflow add env` adapts env names to the detected project.
+
+Frontend apps get public-safe env vars:
+
+```txt
+Vite / React: VITE_FLOWLESS_URL, VITE_FLOWFULL_API_URL, VITE_BRIDGE_VALIDATION_SECRET
+Expo: EXPO_PUBLIC_FLOWLESS_URL, EXPO_PUBLIC_FLOWFULL_API_URL, EXPO_PUBLIC_BRIDGE_VALIDATION_SECRET
+Next.js: NEXT_PUBLIC_FLOWLESS_URL, NEXT_PUBLIC_FLOWFULL_API_URL, NEXT_PUBLIC_BRIDGE_VALIDATION_SECRET
+```
+
+Backends get Bridge Validation env vars:
+
+```txt
+FLOWLESS_URL
+BRIDGE_VALIDATION_SECRET
+FLOWFULL_API_URL
+PUBFLOW_VALIDATION_MODE
 ```
 
 ## AI Context

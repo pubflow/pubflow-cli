@@ -106,7 +106,24 @@ Env:
 ```bash
 FLOWLESS_URL=https://your-flowless-instance.com
 BRIDGE_VALIDATION_SECRET=replace-me
+FLOWFULL_API_URL=http://localhost:3001
 PUBFLOW_VALIDATION_MODE=standard
+```
+
+Frontend env aliases:
+
+```bash
+VITE_FLOWLESS_URL=https://your-flowless-instance.com
+VITE_FLOWFULL_API_URL=http://localhost:3001
+VITE_BRIDGE_VALIDATION_SECRET=replace-me
+
+EXPO_PUBLIC_FLOWLESS_URL=https://your-flowless-instance.com
+EXPO_PUBLIC_FLOWFULL_API_URL=http://localhost:3001
+EXPO_PUBLIC_BRIDGE_VALIDATION_SECRET=replace-me
+
+NEXT_PUBLIC_FLOWLESS_URL=https://your-flowless-instance.com
+NEXT_PUBLIC_FLOWFULL_API_URL=http://localhost:3001
+NEXT_PUBLIC_BRIDGE_VALIDATION_SECRET=replace-me
 ```
 
 Common bridge response:

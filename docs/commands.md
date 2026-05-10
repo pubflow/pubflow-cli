@@ -2,6 +2,13 @@
 
 The Pubflow CLI helps you create apps, add project context, configure env vars, inspect setup, and jump into docs.
 
+You can use either binary:
+
+```bash
+pubflow init
+pbfl init
+```
+
 ## Create A Project
 
 Guided flow:
@@ -85,14 +92,21 @@ pubflow add env
 
 Adds Pubflow env vars to `.env.example` and can optionally update `.env`.
 
-Default variables:
+Frontend projects get public-safe env vars:
+
+```txt
+Vite / React: VITE_FLOWLESS_URL, VITE_FLOWFULL_API_URL, VITE_BRIDGE_VALIDATION_SECRET
+Expo: EXPO_PUBLIC_FLOWLESS_URL, EXPO_PUBLIC_FLOWFULL_API_URL, EXPO_PUBLIC_BRIDGE_VALIDATION_SECRET
+Next.js: NEXT_PUBLIC_FLOWLESS_URL, NEXT_PUBLIC_FLOWFULL_API_URL, NEXT_PUBLIC_BRIDGE_VALIDATION_SECRET
+```
+
+Backend projects get Bridge Validation env vars:
 
 ```bash
 FLOWLESS_URL=https://your-flowless-instance.com
 BRIDGE_VALIDATION_SECRET=replace-me
+FLOWFULL_API_URL=http://localhost:3001
 PUBFLOW_VALIDATION_MODE=standard
-PUBFLOW_SESSION_COOKIE=session_id
-PUBFLOW_REQUEST_TIMEOUT_MS=5000
 ```
 
 Bridge validation uses:

@@ -61,7 +61,7 @@ const program = new Command();
 program
   .name('pubflow')
   .description('Official Pubflow Platform CLI to create apps and manage projects.')
-  .version('0.4.0');
+  .version('0.5.0');
 
 program
   .command('init')
@@ -316,7 +316,7 @@ async function runExistingProjectInit(options) {
       },
       {
         title: 'Env vars',
-        description: 'Add FLOWLESS_URL and BRIDGE_VALIDATION_SECRET.',
+        description: 'Add Flowless, Flowfull API, and bridge validation env vars.',
         value: 'env',
         selected: true,
       },
@@ -466,10 +466,13 @@ async function installContextReferences(projectDir, targets, installedPath) {
 
 async function runAddEnv(options) {
   printHeader();
+  const project = await detectProjectInfo(process.cwd());
+  const envDefaults = getEnvDefaults(project);
 
   const answers = options.yes
     ? {
         flowlessUrl: 'https://your-flowless-instance.com',
+        apiUrl: 'http://localhost:3001',
         writeEnv: false,
       }
     : await prompts([
@@ -478,6 +481,15 @@ async function runAddEnv(options) {
           name: 'flowlessUrl',
           message: 'Flowless URL',
           initial: 'https://your-flowless-instance.com',
+        },
+        {
+          type: envDefaults.apiUrlKey ? 'text' : null,
+          name: 'apiUrl',
+          message:
+            project.kind === 'backend'
+              ? 'Flowfull API URL for this backend'
+              : 'Flowfull API URL',
+          initial: 'http://localhost:3001',
         },
         {
           type: 'confirm',
@@ -489,21 +501,18 @@ async function runAddEnv(options) {
 
   if (!answers.flowlessUrl) return;
 
-  const envVars = {
-    FLOWLESS_URL: answers.flowlessUrl,
-    BRIDGE_VALIDATION_SECRET: 'replace-me',
-    PUBFLOW_VALIDATION_MODE: 'standard',
-    PUBFLOW_SESSION_COOKIE: 'session_id',
-    PUBFLOW_REQUEST_TIMEOUT_MS: '5000',
-  };
+  const envVars = buildEnvVars(project, envDefaults, answers);
 
   await upsertEnvFile(path.join(process.cwd(), '.env.example'), envVars);
   if (answers.writeEnv) {
-    await upsertEnvFile(path.join(process.cwd(), '.env'), envVars);
+    await upsertEnvFile(path.join(process.cwd(), '.env'), envVars, { preserveExisting: true });
   }
 
   console.log(colors.green('Pubflow env vars added.'));
   console.log(`${colors.dim('Updated:')} .env.example`);
+  if (project.label) {
+    console.log(`${colors.dim('Detected:')} ${project.label}`);
+  }
   if (answers.writeEnv) {
     console.log(`${colors.dim('Updated:')} .env`);
   }
@@ -616,18 +625,16 @@ async function runInspect() {
   printHeader();
 
   const projectDir = process.cwd();
+  const project = await detectProjectInfo(projectDir);
   const checks = [];
   checks.push(await inspectPath('.pubflow/context', 'AI context installed'));
   checks.push(await inspectAnyPath(['AGENTS.md', '.cursor/rules/pubflow.mdc', '.github/copilot-instructions.md', 'CLAUDE.md'], 'Agent/editor instructions'));
   checks.push(await inspectPath('.env.example', 'Env example file'));
-  checks.push(await inspectEnvVar('.env.example', 'FLOWLESS_URL'));
-  checks.push(await inspectAnyEnvVar('.env.example', ['BRIDGE_VALIDATION_SECRET'], 'Bridge validation secret'));
+  checks.push(...(await inspectEnvForProject('.env.example', project)));
   checks.push(await inspectAnyPath(['package.json', 'pyproject.toml', 'requirements.txt', 'go.mod', 'mix.exs'], 'Project manifest'));
 
-  const detected = await detectProject(projectDir);
-  const project = await detectProjectInfo(projectDir);
-  if (detected.length) {
-    checks.push({ level: 'ok', label: 'Detected stack', detail: detected.join(', ') });
+  if (project.label) {
+    checks.push({ level: 'ok', label: 'Detected stack', detail: project.label });
   } else {
     checks.push({ level: 'warn', label: 'Detected stack', detail: 'No known Pubflow starter shape detected.' });
   }
@@ -1165,7 +1172,7 @@ async function upsertMarkedBlock(filePath, title, body) {
   await fs.writeFile(filePath, next, 'utf8');
 }
 
-async function upsertEnvFile(filePath, vars) {
+async function upsertEnvFile(filePath, vars, options = {}) {
   await fs.ensureDir(path.dirname(filePath));
   const existing = (await fs.pathExists(filePath)) ? await fs.readFile(filePath, 'utf8') : '';
   const lines = existing.split(/\r?\n/);
@@ -1181,13 +1188,69 @@ async function upsertEnvFile(filePath, vars) {
   for (const [key, value] of Object.entries(vars)) {
     const index = nextLines.findIndex((line) => line.trim().startsWith(`${key}=`));
     if (index >= 0) {
-      nextLines[index] = `${key}=${value}`;
+      if (!options.preserveExisting) {
+        nextLines[index] = `${key}=${value}`;
+      }
     } else {
       nextLines.push(`${key}=${value}`);
     }
   }
 
   await fs.writeFile(filePath, `${nextLines.join('\n').replace(/\n+$/g, '')}\n`, 'utf8');
+}
+
+function getEnvDefaults(project) {
+  if (project.framework === 'react-native') {
+    return {
+      flowlessUrlKey: 'EXPO_PUBLIC_FLOWLESS_URL',
+      apiUrlKey: 'EXPO_PUBLIC_FLOWFULL_API_URL',
+      bridgeSecretKey: 'EXPO_PUBLIC_BRIDGE_VALIDATION_SECRET',
+      includeBridge: false,
+    };
+  }
+  if (project.framework === 'nextjs') {
+    return {
+      flowlessUrlKey: 'NEXT_PUBLIC_FLOWLESS_URL',
+      apiUrlKey: 'NEXT_PUBLIC_FLOWFULL_API_URL',
+      bridgeSecretKey: 'NEXT_PUBLIC_BRIDGE_VALIDATION_SECRET',
+      includeBridge: false,
+    };
+  }
+  if (project.framework === 'react') {
+    return {
+      flowlessUrlKey: 'VITE_FLOWLESS_URL',
+      apiUrlKey: 'VITE_FLOWFULL_API_URL',
+      bridgeSecretKey: 'VITE_BRIDGE_VALIDATION_SECRET',
+      includeBridge: false,
+    };
+  }
+
+  return {
+    flowlessUrlKey: 'FLOWLESS_URL',
+    apiUrlKey: 'FLOWFULL_API_URL',
+    bridgeSecretKey: 'BRIDGE_VALIDATION_SECRET',
+    includeBridge: true,
+  };
+}
+
+function buildEnvVars(project, defaults, answers) {
+  const vars = {
+    [defaults.flowlessUrlKey]: answers.flowlessUrl,
+  };
+
+  if (defaults.apiUrlKey && answers.apiUrl) {
+    vars[defaults.apiUrlKey] = answers.apiUrl;
+  }
+
+  if (defaults.bridgeSecretKey) {
+    vars[defaults.bridgeSecretKey] = 'replace-me';
+  }
+
+  if (defaults.includeBridge) {
+    vars.PUBFLOW_VALIDATION_MODE = 'standard';
+  }
+
+  return vars;
 }
 
 async function inspectPath(relativePath, label) {
@@ -1234,6 +1297,51 @@ async function inspectAnyEnvVar(relativePath, keys, label) {
     label,
     detail: found ? `${found} configured` : 'required for Bridge Validation',
   };
+}
+
+async function inspectEnvForProject(relativePath, project) {
+  const defaults = getEnvDefaults(project);
+  const checks = [];
+  checks.push(await inspectAnyEnvVar(relativePath, getFlowlessEnvAliases(project), 'Flowless URL'));
+
+  if (project.kind === 'frontend') {
+    checks.push(await inspectAnyEnvVar(relativePath, getFlowfullApiEnvAliases(project), 'Flowfull API URL'));
+    checks.push(await inspectAnyEnvVar(relativePath, getBridgeSecretEnvAliases(project), 'Bridge validation secret'));
+  } else {
+    checks.push(await inspectAnyEnvVar(relativePath, ['FLOWFULL_API_URL'], 'Flowfull API URL'));
+    checks.push(await inspectAnyEnvVar(relativePath, ['BRIDGE_VALIDATION_SECRET'], 'Bridge validation secret'));
+  }
+
+  if (defaults.flowlessUrlKey !== 'FLOWLESS_URL') {
+    checks.push({
+      level: 'info',
+      label: 'Recommended env prefix',
+      detail: [defaults.flowlessUrlKey, defaults.apiUrlKey, defaults.bridgeSecretKey].filter(Boolean).join(', '),
+    });
+  }
+
+  return checks;
+}
+
+function getFlowlessEnvAliases(project) {
+  if (project.framework === 'react-native') return ['EXPO_PUBLIC_FLOWLESS_URL', 'FLOWLESS_URL'];
+  if (project.framework === 'nextjs') return ['NEXT_PUBLIC_FLOWLESS_URL', 'FLOWLESS_URL'];
+  if (project.framework === 'react') return ['VITE_FLOWLESS_URL', 'FLOWLESS_URL'];
+  return ['FLOWLESS_URL'];
+}
+
+function getFlowfullApiEnvAliases(project) {
+  if (project.framework === 'react-native') return ['EXPO_PUBLIC_FLOWFULL_API_URL', 'EXPO_PUBLIC_API_URL', 'API_URL'];
+  if (project.framework === 'nextjs') return ['NEXT_PUBLIC_FLOWFULL_API_URL', 'NEXT_PUBLIC_API_URL', 'API_URL'];
+  if (project.framework === 'react') return ['VITE_FLOWFULL_API_URL', 'VITE_API_URL', 'API_URL'];
+  return ['FLOWFULL_API_URL', 'API_URL'];
+}
+
+function getBridgeSecretEnvAliases(project) {
+  if (project.framework === 'react-native') return ['EXPO_PUBLIC_BRIDGE_VALIDATION_SECRET', 'BRIDGE_VALIDATION_SECRET'];
+  if (project.framework === 'nextjs') return ['NEXT_PUBLIC_BRIDGE_VALIDATION_SECRET', 'BRIDGE_VALIDATION_SECRET'];
+  if (project.framework === 'react') return ['VITE_BRIDGE_VALIDATION_SECRET', 'BRIDGE_VALIDATION_SECRET'];
+  return ['BRIDGE_VALIDATION_SECRET'];
 }
 
 async function detectProject(projectDir) {
@@ -1709,7 +1817,7 @@ function getHintsTopic(topic = 'next') {
       lines: [
         '`pubflow create` to start a frontend or backend starter.',
         '`pubflow add context` so agents understand Flowless, Flowfull, and Bridge Validation.',
-        '`pubflow add env` to add FLOWLESS_URL and BRIDGE_VALIDATION_SECRET.',
+        '`pubflow add env` to add Flowless, Flowfull API, and bridge validation env vars.',
         '`pubflow inspect` to check the project setup.',
       ],
     },
@@ -1736,7 +1844,9 @@ function getHintsTopic(topic = 'next') {
     env: {
       title: 'Env Hints',
       lines: [
-        'Required for Bridge Validation: FLOWLESS_URL and BRIDGE_VALIDATION_SECRET.',
+        'Backends need FLOWLESS_URL, BRIDGE_VALIDATION_SECRET, FLOWFULL_API_URL, and PUBFLOW_VALIDATION_MODE.',
+        'Frontend apps get framework-safe public env names like VITE_, EXPO_PUBLIC_, or NEXT_PUBLIC_.',
+        'Frontend bridge validation secrets use public aliases only when the project intentionally validates from the client.',
         'Write placeholders to .env.example.',
         'Only write .env after user confirmation.',
         'Never generate real secrets.',

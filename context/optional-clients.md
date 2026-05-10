@@ -78,7 +78,7 @@ Existing project:
 - Clients may manage UI auth state.
 - Clients may store `sessionId` after Flowless login/register using localStorage, AsyncStorage, SecureStore, cookies, or the starter's selected storage strategy.
 - Clients may send `session_id`/`sessionId` to Flowfull APIs using the app's chosen cookie/header pattern, usually `X-Session-ID`.
-- Clients usually should not hold `BRIDGE_VALIDATION_SECRET`.
+- Frontend clients may use the public bridge secret aliases only when the app intentionally performs client-side bridge validation.
 - Clients should send `X-Bridge-Secret` only when the app intentionally uses a public/client-side bridge validation design.
 - Clients may call public Flowless/session endpoints only when those endpoints are designed for public clients.
 - Frontend route guards improve UX, but Flowfull middleware enforces security.

@@ -71,7 +71,8 @@ When building a frontend:
 - Do not hardcode bridge secrets.
 - Do not make frontend authorization the only protection.
 - Do not mix Trust Session Tokens with Trust Tokens.
-- Do not expose `BRIDGE_VALIDATION_SECRET` or `X-Bridge-Secret` to frontend bundles unless the project explicitly uses a public/client-side bridge validation design.
+- Public frontend builds may use `VITE_BRIDGE_VALIDATION_SECRET`, `EXPO_PUBLIC_BRIDGE_VALIDATION_SECRET`, or `NEXT_PUBLIC_BRIDGE_VALIDATION_SECRET` when the app intentionally performs client-side bridge validation.
+- Prefer backend/Flowfull validation for server-owned authorization.
 - Do not put role or permission enforcement only in frontend route guards.
 
 ## Prefer This

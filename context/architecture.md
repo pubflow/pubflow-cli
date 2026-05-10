@@ -102,7 +102,7 @@ Flowfull routes should use reusable auth middleware:
 ## Anti-Patterns
 
 - A frontend route guard as the only protection.
-- Accidentally putting `X-Bridge-Secret` or `BRIDGE_VALIDATION_SECRET` in browser code.
+- Accidentally treating public frontend bridge validation env vars as hidden secrets.
 - Using frontend bridge validation without an intentional public-client design.
 - Copying Flowless session payload into localStorage.
 - Treating a session ID as authorization by itself.

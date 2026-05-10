@@ -24,6 +24,7 @@ X-Bridge-Secret: <BRIDGE_VALIDATION_SECRET>
 - `session_id`: opaque session identifier read from cookie, request header, or framework session helper.
 - `FLOWLESS_URL`: Flowless instance URL.
 - `BRIDGE_VALIDATION_SECRET`: required bridge validation secret sent as `X-Bridge-Secret`.
+- `FLOWFULL_API_URL`: current Flowfull/backend API URL for clients or self-references.
 - `validation_mode`: `standard`, `advanced`, or `strict`.
 
 Optional request context:
@@ -38,15 +39,14 @@ Optional request context:
 ```bash
 FLOWLESS_URL=https://your-flowless-instance.com
 BRIDGE_VALIDATION_SECRET=replace-me
+FLOWFULL_API_URL=http://localhost:3001
 PUBFLOW_VALIDATION_MODE=standard
 ```
 
 Optional:
 
 ```bash
-PUBFLOW_SESSION_COOKIE=session_id
-PUBFLOW_SESSION_HEADER=authorization
-PUBFLOW_REQUEST_TIMEOUT_MS=5000
+PUBFLOW_VALIDATION_MODE=standard
 ```
 
 ## Validation Flow
