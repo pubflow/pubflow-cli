@@ -15,6 +15,7 @@ import { getTemplate, getTemplatesByCategory, templates } from './templates.js';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const packageRoot = path.resolve(__dirname, '..');
 const contextSourceDir = path.join(packageRoot, 'context');
+const packageJson = fs.readJsonSync(path.join(packageRoot, 'package.json'));
 
 const clients = [
   {
@@ -48,6 +49,12 @@ const clients = [
     docs: 'https://clients.flowfull.dev/packages/go',
   },
   {
+    id: 'rust',
+    name: 'Rust client',
+    install: 'cargo add flowfull',
+    docs: 'https://clients.flowfull.dev/packages/rust',
+  },
+  {
     id: 'elixir',
     name: 'Elixir client',
     install: 'mix hex.info flowfull',
@@ -61,7 +68,7 @@ const program = new Command();
 program
   .name('pubflow')
   .description('Official Pubflow Platform CLI to create apps and manage projects.')
-  .version('0.5.0');
+  .version(packageJson.version);
 
 program
   .command('init')
@@ -143,7 +150,7 @@ addCommand
 addCommand
   .command('client')
   .description('Add a Flowfull client package to the current project.')
-  .argument('[client]', 'Client id: universal-js, react, react-native, python, go, elixir')
+  .argument('[client]', 'Client id: universal-js, react, react-native, python, go, rust, elixir')
   .option('-y, --yes', 'Use the detected recommended client when possible.')
   .option('--no-install', 'Show setup without installing packages.')
   .action(async (clientId, options) => {
@@ -589,7 +596,7 @@ async function runAddMiddleware(options) {
   const target = detectMiddlewareTarget(project);
   if (!target) {
     console.log(colors.yellow('Could not confidently detect a supported backend project.'));
-    console.log('Supported middleware targets: Node/TypeScript, Python/FastAPI, Go/Gin, Elixir/Phoenix.');
+    console.log('Supported middleware targets: Node/TypeScript, Python/FastAPI, Go/Gin, Rust/Axum, Elixir/Phoenix.');
     return;
   }
 
@@ -631,7 +638,7 @@ async function runInspect() {
   checks.push(await inspectAnyPath(['AGENTS.md', '.cursor/rules/pubflow.mdc', '.github/copilot-instructions.md', 'CLAUDE.md'], 'Agent/editor instructions'));
   checks.push(await inspectPath('.env.example', 'Env example file'));
   checks.push(...(await inspectEnvForProject('.env.example', project)));
-  checks.push(await inspectAnyPath(['package.json', 'pyproject.toml', 'requirements.txt', 'go.mod', 'mix.exs'], 'Project manifest'));
+  checks.push(await inspectAnyPath(['package.json', 'pyproject.toml', 'requirements.txt', 'go.mod', 'Cargo.toml', 'mix.exs'], 'Project manifest'));
 
   if (project.label) {
     checks.push({ level: 'ok', label: 'Detected stack', detail: project.label });
@@ -888,6 +895,7 @@ async function detectProjectInfo(projectDir) {
     packageManager: await detectPackageManager(projectDir),
   };
 
+  const hasCargoToml = await fs.pathExists(path.join(projectDir, 'Cargo.toml'));
   const packageJsonPath = path.join(projectDir, 'package.json');
   if (await fs.pathExists(packageJsonPath)) {
     const packageJson = await fs.readJson(packageJsonPath).catch(() => ({}));
@@ -901,12 +909,18 @@ async function detectProjectInfo(projectDir) {
     if (deps?.react) {
       return { ...info, label: 'React project', kind: 'frontend', framework: 'react' };
     }
+    if (hasCargoToml) {
+      return { ...info, label: 'Rust / Axum project', kind: 'backend', framework: 'rust' };
+    }
     if (deps?.hono || deps?.typescript || packageJson.type === 'module') {
       return { ...info, label: 'Node / TypeScript backend', kind: 'backend', framework: 'node' };
     }
     return { ...info, label: 'Node project', kind: 'backend', framework: 'node' };
   }
 
+  if (hasCargoToml) {
+    return { ...info, label: 'Rust / Axum project', kind: 'backend', framework: 'rust' };
+  }
   if (await fs.pathExists(path.join(projectDir, 'requirements.txt')) || await fs.pathExists(path.join(projectDir, 'pyproject.toml'))) {
     return { ...info, label: 'Python project', kind: 'backend', framework: 'python' };
   }
@@ -928,6 +942,7 @@ async function detectPackageManager(projectDir) {
   if (await fs.pathExists(path.join(projectDir, 'uv.lock'))) return 'uv';
   if (await fs.pathExists(path.join(projectDir, 'requirements.txt')) || await fs.pathExists(path.join(projectDir, 'pyproject.toml'))) return 'pip';
   if (await fs.pathExists(path.join(projectDir, 'go.mod'))) return 'go';
+  if (await fs.pathExists(path.join(projectDir, 'Cargo.toml'))) return 'cargo';
   if (await fs.pathExists(path.join(projectDir, 'mix.exs'))) return 'mix';
   return '';
 }
@@ -938,6 +953,7 @@ function recommendClient(project) {
   if (project.framework === 'nextjs') return clients.find((client) => client.id === 'react');
   if (project.framework === 'python') return clients.find((client) => client.id === 'python');
   if (project.framework === 'go') return clients.find((client) => client.id === 'go');
+  if (project.framework === 'rust') return clients.find((client) => client.id === 'rust');
   if (project.framework === 'elixir') return clients.find((client) => client.id === 'elixir');
   if (project.framework === 'node') return clients.find((client) => client.id === 'universal-js');
   return null;
@@ -989,6 +1005,7 @@ function detectMiddlewareTarget(project) {
   if (project.framework === 'node') return 'node';
   if (project.framework === 'python') return 'python';
   if (project.framework === 'go') return 'go';
+  if (project.framework === 'rust') return 'rust';
   if (project.framework === 'elixir') return 'elixir';
   return null;
 }
@@ -1003,6 +1020,7 @@ function getMiddlewarePath(projectDir, target, namespace) {
   if (target === 'node') return path.join(projectDir, 'src', namespace, 'auth.ts');
   if (target === 'python') return path.join(projectDir, 'app', namespace, 'auth.py');
   if (target === 'go') return path.join(projectDir, 'internal', namespace, 'auth.go');
+  if (target === 'rust') return path.join(projectDir, 'src', namespace, 'auth.rs');
   return path.join(projectDir, 'lib', `${namespace}_auth.ex`);
 }
 
@@ -1010,6 +1028,7 @@ function getMiddlewareSource(target, namespace) {
   if (target === 'node') return getNodeMiddlewareSource();
   if (target === 'python') return getPythonMiddlewareSource();
   if (target === 'go') return getGoMiddlewareSource(namespace);
+  if (target === 'rust') return getRustMiddlewareSource();
   return getElixirMiddlewareSource(namespace);
 }
 
@@ -1024,6 +1043,10 @@ function printMiddlewareUsage(target, namespace) {
     console.log(`  current_user = Depends(require_auth)`);
   } else if (target === 'go') {
     console.log(`  router.GET("/me", ${namespace}.RequireAuth(), handler)`);
+  } else if (target === 'rust') {
+    console.log(`  mod ${namespace};`);
+    console.log(`  .layer(middleware::from_fn_with_state(state.clone(), ${namespace}::auth::require_auth))`);
+    console.log(`  .layer(${namespace}::auth::require_roles(["admin", "manager"]))`);
   } else {
     console.log(`  plug BridgeAuth.RequireAuth`);
   }
@@ -1062,6 +1085,8 @@ async function runDoctor() {
     ['git', ['--version'], 'git'],
     ['python', ['--version'], 'Python'],
     ['go', ['version'], 'Go'],
+    ['cargo', ['--version'], 'Cargo'],
+    ['rustc', ['--version'], 'Rust compiler'],
     ['mix', ['--version'], 'Elixir Mix'],
   ];
 
@@ -1359,6 +1384,9 @@ async function detectProject(projectDir) {
   if (await fs.pathExists(path.join(projectDir, 'go.mod'))) {
     detected.push('Go');
   }
+  if (await fs.pathExists(path.join(projectDir, 'Cargo.toml'))) {
+    detected.push('Rust');
+  }
   if (await fs.pathExists(path.join(projectDir, 'mix.exs'))) {
     detected.push('Elixir / Phoenix');
   }
@@ -1415,7 +1443,7 @@ function getDocsTopic(topic = 'home') {
       title: 'Flowfull',
       summary: 'Flowfull is your backend layer: business logic, authorization, routes, and database access.',
       links: [{ label: 'Flowfull', url: 'https://flowfull.dev/' }],
-      local: 'Use a backend starter: `node-backend`, `python-backend`, `go-backend`, or `elixir-backend`.',
+      local: 'Use a backend starter: `node-backend`, `python-backend`, `go-backend`, `rust-backend`, or `elixir-backend`.',
     },
     flowless: {
       title: 'Flowless',
@@ -1733,6 +1761,356 @@ func ValidateSession(ctx context.Context, c *gin.Context) (*AuthContext, error) 
 `;
 }
 
+function getRustMiddlewareSource() {
+  return `use std::{
+    future::Future,
+    pin::Pin,
+    sync::Arc,
+    task::{Context, Poll},
+};
+
+use axum::{
+    extract::{Request, State},
+    http::StatusCode,
+    middleware::Next,
+    response::{IntoResponse, Response},
+};
+use chrono::{DateTime, Utc};
+use reqwest::Url;
+use serde::{Deserialize, Serialize};
+use tower::{Layer, Service};
+
+#[derive(Debug, Clone)]
+pub struct BridgeAuthState {
+    pub flowless_url: String,
+    pub bridge_secret: String,
+    pub bridge_endpoint: String,
+    pub client: reqwest::Client,
+}
+
+impl BridgeAuthState {
+    pub fn from_env() -> Result<Self, BridgeAuthError> {
+        let flowless_url = std::env::var("FLOWLESS_URL")
+            .map_err(|_| BridgeAuthError::MissingConfig("FLOWLESS_URL"))?;
+        let bridge_secret = std::env::var("BRIDGE_VALIDATION_SECRET")
+            .map_err(|_| BridgeAuthError::MissingConfig("BRIDGE_VALIDATION_SECRET"))?;
+        let bridge_endpoint = std::env::var("BRIDGE_VALIDATION_ENDPOINT")
+            .unwrap_or_else(|_| "/auth/bridge/validate".to_string());
+
+        Ok(Self {
+            flowless_url,
+            bridge_secret,
+            bridge_endpoint,
+            client: reqwest::Client::new(),
+        })
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct SessionData {
+    pub user_id: String,
+    pub email: Option<String>,
+    pub name: Option<String>,
+    pub user_type: Option<String>,
+    pub session_id: String,
+    pub permissions: Vec<String>,
+    pub expires_at: Option<DateTime<Utc>>,
+    pub user: serde_json::Value,
+    pub session: serde_json::Value,
+    pub is_guest: bool,
+}
+
+#[derive(Debug, Clone, Default, Serialize)]
+pub struct ValidationOptions {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub ip: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub user_agent: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub device_id: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct BridgeValidationResponse {
+    #[serde(default)]
+    success: bool,
+    #[serde(default)]
+    valid: bool,
+    user: Option<BridgeUser>,
+    session: Option<BridgeSession>,
+}
+
+#[derive(Debug, Deserialize)]
+struct BridgeUser {
+    id: String,
+    email: Option<String>,
+    name: Option<String>,
+    user_type: Option<String>,
+    #[serde(default)]
+    permissions: Vec<String>,
+    #[serde(flatten)]
+    extra: serde_json::Map<String, serde_json::Value>,
+}
+
+#[derive(Debug, Deserialize)]
+struct BridgeSession {
+    id: Option<String>,
+    expires_at: Option<DateTime<Utc>>,
+    #[serde(flatten)]
+    extra: serde_json::Map<String, serde_json::Value>,
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum BridgeAuthError {
+    #[error("missing config: {0}")]
+    MissingConfig(&'static str),
+    #[error("missing session")]
+    MissingSession,
+    #[error("bridge request failed: {0}")]
+    Request(#[from] reqwest::Error),
+    #[error("invalid bridge response")]
+    InvalidResponse,
+    #[error("invalid session")]
+    InvalidSession,
+}
+
+pub async fn require_auth(
+    State(state): State<Arc<BridgeAuthState>>,
+    mut request: Request,
+    next: Next,
+) -> Response {
+    let Some(session_id) = extract_session_id(&request) else {
+        return StatusCode::UNAUTHORIZED.into_response();
+    };
+
+    let options = validation_options(&request);
+    let Ok(session) = validate_session(&state, &session_id, options).await else {
+        return StatusCode::UNAUTHORIZED.into_response();
+    };
+
+    request.extensions_mut().insert(session);
+    next.run(request).await
+}
+
+pub async fn optional_auth(
+    State(state): State<Arc<BridgeAuthState>>,
+    mut request: Request,
+    next: Next,
+) -> Response {
+    if let Some(session_id) = extract_session_id(&request) {
+        let options = validation_options(&request);
+        if let Ok(session) = validate_session(&state, &session_id, options).await {
+            request.extensions_mut().insert(session);
+        }
+    }
+
+    next.run(request).await
+}
+
+pub async fn validate_session(
+    state: &BridgeAuthState,
+    session_id: &str,
+    options: ValidationOptions,
+) -> Result<SessionData, BridgeAuthError> {
+    if session_id.is_empty() {
+        return Err(BridgeAuthError::MissingSession);
+    }
+
+    #[derive(Serialize)]
+    struct RequestBody<'a> {
+        session_id: &'a str,
+        #[serde(flatten)]
+        options: ValidationOptions,
+    }
+
+    let base = Url::parse(&state.flowless_url).map_err(|_| BridgeAuthError::InvalidResponse)?;
+    let url = base
+        .join(state.bridge_endpoint.trim_start_matches('/'))
+        .map_err(|_| BridgeAuthError::InvalidResponse)?;
+
+    let response = state
+        .client
+        .post(url)
+        .header("X-Bridge-Secret", &state.bridge_secret)
+        .json(&RequestBody {
+            session_id,
+            options,
+        })
+        .send()
+        .await?;
+
+    if !response.status().is_success() {
+        return Err(BridgeAuthError::InvalidSession);
+    }
+
+    let parsed = response.json::<BridgeValidationResponse>().await?;
+    if !parsed.success && !parsed.valid {
+        return Err(BridgeAuthError::InvalidSession);
+    }
+
+    let user = parsed.user.ok_or(BridgeAuthError::InvalidResponse)?;
+    let session = parsed.session.unwrap_or(BridgeSession {
+        id: None,
+        expires_at: None,
+        extra: Default::default(),
+    });
+
+    let user_json = serde_json::to_value(&user.extra).unwrap_or_default();
+    let session_json = serde_json::to_value(&session.extra).unwrap_or_default();
+
+    Ok(SessionData {
+        user_id: user.id,
+        email: user.email,
+        name: user.name,
+        user_type: user.user_type,
+        session_id: session.id.unwrap_or_else(|| session_id.to_string()),
+        permissions: user.permissions,
+        expires_at: session.expires_at,
+        user: user_json,
+        session: session_json,
+        is_guest: false,
+    })
+}
+
+pub fn extract_session_id(request: &Request) -> Option<String> {
+    request
+        .headers()
+        .get("X-Session-Id")
+        .or_else(|| request.headers().get("X-Session-ID"))
+        .and_then(|value| value.to_str().ok())
+        .filter(|value| !value.is_empty())
+        .map(str::to_string)
+        .or_else(|| extract_cookie(request, "session_id"))
+        .or_else(|| extract_query_session(request))
+}
+
+#[derive(Debug, Clone)]
+pub struct RequireRolesLayer {
+    allowed_roles: Arc<[String]>,
+}
+
+#[derive(Debug, Clone)]
+pub struct RequireRolesService<S> {
+    inner: S,
+    allowed_roles: Arc<[String]>,
+}
+
+pub fn require_roles<I, R>(roles: I) -> RequireRolesLayer
+where
+    I: IntoIterator<Item = R>,
+    R: Into<String>,
+{
+    let allowed_roles = roles
+        .into_iter()
+        .map(Into::into)
+        .map(|role| role.trim().to_string())
+        .filter(|role| !role.is_empty())
+        .collect::<Vec<_>>();
+
+    RequireRolesLayer {
+        allowed_roles: Arc::from(allowed_roles),
+    }
+}
+
+pub fn require_roles_csv(roles: &str) -> RequireRolesLayer {
+    require_roles(roles.split(','))
+}
+
+pub fn require_admin() -> RequireRolesLayer {
+    require_roles(["admin"])
+}
+
+impl<S> Layer<S> for RequireRolesLayer {
+    type Service = RequireRolesService<S>;
+
+    fn layer(&self, inner: S) -> Self::Service {
+        RequireRolesService {
+            inner,
+            allowed_roles: self.allowed_roles.clone(),
+        }
+    }
+}
+
+impl<S> Service<Request> for RequireRolesService<S>
+where
+    S: Service<Request, Response = Response> + Clone + Send + 'static,
+    S::Future: Send + 'static,
+{
+    type Response = Response;
+    type Error = S::Error;
+    type Future = Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>> + Send>>;
+
+    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+        self.inner.poll_ready(cx)
+    }
+
+    fn call(&mut self, request: Request) -> Self::Future {
+        let allowed_roles = self.allowed_roles.clone();
+        let clone = self.inner.clone();
+        let mut inner = std::mem::replace(&mut self.inner, clone);
+
+        Box::pin(async move {
+            let Some(session) = request.extensions().get::<SessionData>() else {
+                return Ok(StatusCode::UNAUTHORIZED.into_response());
+            };
+
+            let user_type = session.user_type.as_deref().unwrap_or_default();
+            if allowed_roles.iter().any(|role| role == user_type) {
+                inner.call(request).await
+            } else {
+                Ok(StatusCode::FORBIDDEN.into_response())
+            }
+        })
+    }
+}
+
+fn validation_options(request: &Request) -> ValidationOptions {
+    ValidationOptions {
+        ip: request
+            .headers()
+            .get("x-forwarded-for")
+            .and_then(|value| value.to_str().ok())
+            .and_then(|value| value.split(',').next())
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .map(str::to_string),
+        user_agent: request
+            .headers()
+            .get("user-agent")
+            .and_then(|value| value.to_str().ok())
+            .map(str::to_string),
+        device_id: request
+            .headers()
+            .get("x-device-id")
+            .and_then(|value| value.to_str().ok())
+            .map(str::to_string),
+    }
+}
+
+fn extract_cookie(request: &Request, cookie_name: &str) -> Option<String> {
+    request
+        .headers()
+        .get("cookie")
+        .and_then(|value| value.to_str().ok())
+        .and_then(|cookies| {
+            cookies.split(';').find_map(|cookie| {
+                let (name, value) = cookie.trim().split_once('=')?;
+                (name == cookie_name && !value.is_empty()).then(|| value.to_string())
+            })
+        })
+}
+
+fn extract_query_session(request: &Request) -> Option<String> {
+    request.uri().query().and_then(|query| {
+        query.split('&').find_map(|part| {
+            let (name, value) = part.split_once('=')?;
+            (name == "session_id" && !value.is_empty()).then(|| value.to_string())
+        })
+    })
+}
+`;
+}
+
 function getElixirMiddlewareSource(namespace) {
   const modulePrefix = namespace === 'pubflow' ? 'PubflowAuth' : 'BridgeAuth';
   return `defmodule ${modulePrefix} do
@@ -1826,9 +2204,10 @@ function getHintsTopic(topic = 'next') {
       lines: [
         'Detected React apps should recommend React client first.',
         'Detected React Native/Expo apps should recommend React Native client first.',
-        'Backend projects can use language clients: Python, Go, Elixir, or universal JS.',
+        'Backend projects can use language clients: Python, Go, Rust, Elixir, or universal JS.',
+        'Rust projects use `cargo add flowfull`.',
         'Prefer latest install commands when package managers support it.',
-        'Current known versions: @pubflow/flowfull-client 0.2.5, @pubflow/core 0.4.6, @pubflow/react 0.4.14, @pubflow/react-native 0.4.1, flowfull-python 1.0.0, flowfull-go v0.2.0, flowfull elixir ~> 0.1.3.',
+        'Current known versions: @pubflow/flowfull-client 0.2.5, @pubflow/core 0.4.6, @pubflow/react 0.4.14, @pubflow/react-native 0.4.1, flowfull-python 1.0.0, flowfull-go v0.2.0, flowfull Rust latest via crates.io, flowfull elixir ~> 0.1.3.',
       ],
     },
     middleware: {
@@ -1837,6 +2216,7 @@ function getHintsTopic(topic = 'next') {
         'Use `bridge` as the generated folder/module name first.',
         'Use `pubflow` only as fallback if `bridge` already exists.',
         'Generate reusable helpers: optionalAuth, requireAuth, requireUserType, requirePermission, requireAdmin.',
+        'For Rust/Axum, generate require_auth, optional_auth, require_roles, require_roles_csv, and require_admin.',
         'Do not scatter Bridge Validation calls across route handlers.',
         'After middleware is added, show an example route and suggest `pubflow inspect`.',
       ],

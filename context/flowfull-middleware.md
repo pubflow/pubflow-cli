@@ -15,6 +15,8 @@ requireUserType(userType | userTypes[])
 requirePermission(permission)
 requireAdmin()
 requireSuperadmin()
+require_roles(["role"])
+require_roles_csv("role,other")
 ```
 
 `requireAdmin()` and `requireSuperadmin()` can be convenience wrappers around `requireUserType()`.
@@ -22,7 +24,7 @@ requireSuperadmin()
 Example:
 
 ```ts
-const requireAdmin = () => requireUserType(['admin', 'superadmin']);
+const requireAdmin = () => requireUserType('admin');
 const requireSuperadmin = () => requireUserType('superadmin');
 ```
 
@@ -192,6 +194,17 @@ Specific user types:
 
 ```ts
 app.get('/api/staff/reports', requireUserType(['admin', 'manager']), handler);
+```
+
+Rust/Axum role layer:
+
+```rust
+.route(
+    "/api/staff/reports",
+    get(reports)
+        .layer(require_roles(["admin", "manager"]))
+        .layer(middleware::from_fn_with_state(state.clone(), require_auth)),
+)
 ```
 
 Permission route:

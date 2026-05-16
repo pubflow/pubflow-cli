@@ -81,6 +81,7 @@ Bridge middleware
 pubflow init
 pubflow create
 pubflow create python-backend my-api
+pubflow create rust-backend my-api
 pubflow create react my-web
 pubflow create react-native my-mobile-app
 pubflow context init
@@ -88,6 +89,7 @@ pubflow context init --full --all
 pubflow add context
 pubflow add env
 pubflow add client react
+pubflow add client rust
 pubflow add middleware
 pubflow inspect
 pubflow docs bridge
@@ -166,6 +168,7 @@ Backend starters:
 - `node-backend` - install with `npm install`, run with `npm run dev`
 - `python-backend` - install with `pip install -r requirements.txt`, run with `uvicorn app.main:app --reload --host 0.0.0.0 --port 3001`
 - `go-backend` - install with `go mod download`, run with `go run cmd/server/main.go`
+- `rust-backend` - install with `cargo fetch`, run with `cargo run`
 - `elixir-backend` - install with `mix deps.get`, run with `mix phx.server`
 
 ## Local Development

@@ -37,6 +37,7 @@ pubflow create react-native my-mobile
 pubflow create node-backend my-api
 pubflow create python-backend my-api
 pubflow create go-backend my-api
+pubflow create rust-backend my-api
 pubflow create elixir-backend my-api
 ```
 
@@ -135,10 +136,11 @@ pubflow add client react-native
 pubflow add client universal-js
 pubflow add client python
 pubflow add client go
+pubflow add client rust
 pubflow add client elixir
 ```
 
-The CLI detects the project and recommends the best client. JavaScript installs use `@latest` and adapt to npm, bun, pnpm, or yarn when detected.
+The CLI detects the project and recommends the best client. JavaScript installs use `@latest` and adapt to npm, bun, pnpm, or yarn when detected. Rust installs use `cargo add flowfull`.
 
 ## Add Middleware
 
@@ -151,9 +153,16 @@ Adds Bridge Validation middleware for supported backend projects:
 - Node / TypeScript
 - Python / FastAPI
 - Go / Gin
+- Rust / Axum
 - Elixir / Phoenix
 
 Generated middleware uses a `bridge` namespace first and falls back to `pubflow` if needed.
+
+Rust middleware is generated for Axum and may require:
+
+```bash
+cargo add axum chrono reqwest serde serde_json thiserror tower
+```
 
 ## Flowless And Flowfull Flow
 
@@ -177,9 +186,9 @@ Recommended middleware:
 ```txt
 optionalAuth()
 requireAuth()
-requireUserType()
+requireUserType() / require_roles()
 requirePermission()
-requireAdmin()
+requireAdmin() / require_admin()
 ```
 
 ## Inspect A Project
@@ -236,4 +245,4 @@ These hints are also shown at the end of `pubflow add client` and `pubflow add m
 pubflow doctor
 ```
 
-Checks common local tools: Node.js, npm, Bun, git, Python, Go, and Elixir Mix.
+Checks common local tools: Node.js, npm, Bun, git, Python, Go, Cargo, rustc, and Elixir Mix.

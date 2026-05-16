@@ -109,6 +109,7 @@ pubflow add client react-native
 pubflow add client universal-js
 pubflow add client python
 pubflow add client go
+pubflow add client rust
 pubflow add client elixir
 ```
 
@@ -120,6 +121,7 @@ npm install @pubflow/core@latest @pubflow/react@latest swr zod
 npm install @pubflow/react-native@latest
 python -m pip install --upgrade flowfull-python
 go get github.com/pubflow/flowfull-go@latest
+cargo add flowfull
 ```
 
 Elixir projects get a safe manual hint:
@@ -147,6 +149,7 @@ Supported targets:
 - Node / TypeScript
 - Python / FastAPI
 - Go / Gin
+- Rust / Axum
 - Elixir / Phoenix
 
 Generated files use `bridge` as the default namespace:
@@ -155,10 +158,17 @@ Generated files use `bridge` as the default namespace:
 src/bridge/auth.ts
 app/bridge/auth.py
 internal/bridge/auth.go
+src/bridge/auth.rs
 lib/bridge_auth.ex
 ```
 
 If a `bridge` file already exists, the CLI falls back to `pubflow` naming to avoid overwriting your code.
+
+Rust/Axum projects may need these dependencies if they are not already installed:
+
+```bash
+cargo add axum chrono reqwest serde serde_json thiserror tower
+```
 
 Bridge Validation uses:
 
@@ -174,6 +184,8 @@ Generated middleware gives you helpers like:
 optionalAuth()
 requireAuth()
 requireUserType()
+require_roles()
+require_roles_csv()
 requirePermission()
 requireAdmin()
 ```
@@ -190,6 +202,7 @@ app.json
 requirements.txt
 pyproject.toml
 go.mod
+Cargo.toml
 mix.exs
 ```
 
@@ -202,6 +215,7 @@ pnpm
 yarn
 pip
 go
+cargo
 mix
 ```
 

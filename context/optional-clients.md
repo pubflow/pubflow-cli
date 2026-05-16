@@ -13,6 +13,7 @@ Docs:
 - Packages: https://clients.flowfull.dev/packages
 - Universal JS client: https://clients.flowfull.dev/packages/flowfull-client
 - Go client: https://clients.flowfull.dev/packages/go
+- Rust client: https://clients.flowfull.dev/packages/rust
 - Python client: https://clients.flowfull.dev/packages/python
 - Elixir client: https://clients.flowfull.dev/packages/elixir
 - React package: https://clients.flowfull.dev/packages/react
@@ -49,6 +50,12 @@ Go:
 - Use in Go backends.
 - Should integrate cleanly with `context.Context`, HTTP clients, and framework middleware.
 
+Rust:
+
+- Use in Rust backends.
+- Install with `cargo add flowfull`.
+- Should integrate cleanly with Axum/Tokio services and backend Bridge Validation.
+
 Elixir:
 
 - Use in Phoenix or Elixir services.
@@ -66,6 +73,7 @@ Backend starter selected:
 - `node-backend` should prefer TypeScript/JavaScript helpers.
 - `python-backend` should prefer Python helpers.
 - `go-backend` should prefer Go helpers.
+- `rust-backend` should prefer Rust helpers.
 - `elixir-backend` should prefer Elixir helpers.
 
 Existing project:

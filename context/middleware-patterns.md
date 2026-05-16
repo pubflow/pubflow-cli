@@ -144,6 +144,56 @@ Implementation notes:
 - Return `403` from handlers/services for authorization failures.
 - Keep validation timeout short.
 
+## Rust / Axum
+
+Good shape:
+
+```rust
+pub async fn require_auth(
+    State(state): State<Arc<BridgeAuthState>>,
+    mut request: Request,
+    next: Next,
+) -> Response {
+    let Some(session_id) = extract_session_id(&request) else {
+        return StatusCode::UNAUTHORIZED.into_response();
+    };
+
+    let Ok(session) = validate_session(&state, &session_id, validation_options(&request)).await else {
+        return StatusCode::UNAUTHORIZED.into_response();
+    };
+
+    request.extensions_mut().insert(session);
+    next.run(request).await
+}
+```
+
+Route usage:
+
+```rust
+.route(
+    "/me",
+    get(me).layer(middleware::from_fn_with_state(state.clone(), require_auth)),
+)
+```
+
+Role route:
+
+```rust
+.route(
+    "/reports",
+    get(reports)
+        .layer(require_roles(["admin", "manager"]))
+        .layer(middleware::from_fn_with_state(state.clone(), require_auth)),
+)
+```
+
+Implementation notes:
+
+- Store validated auth context in Axum request extensions.
+- Use `require_roles(["admin", "manager"])` for custom roles.
+- Keep `require_admin()` admin-only by default.
+- Use `reqwest` for Bridge Validation and keep the bridge secret server-side.
+
 ## Elixir / Phoenix
 
 Good shape:
@@ -203,7 +253,7 @@ Never assume a valid session means access to every resource.
 Create thin helpers when the project has common roles:
 
 ```ts
-const requireAdmin = () => requireUserType(['admin', 'superadmin']);
+const requireAdmin = () => requireUserType('admin');
 const requireSuperadmin = () => requireUserType('superadmin');
 ```
 

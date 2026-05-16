@@ -60,6 +60,18 @@ export const templates = [
     devCommand: 'go run cmd/server/main.go',
   },
   {
+    id: 'rust-backend',
+    name: 'Rust Backend',
+    category: 'backend',
+    language: 'Rust',
+    framework: 'Axum',
+    description: 'Flowfull backend starter powered by Rust, Axum, Tokio, and SQLx.',
+    repo: 'pubflow/flowfull-rust-starter',
+    branch: 'master',
+    installCommand: 'cargo fetch',
+    devCommand: 'cargo run',
+  },
+  {
     id: 'elixir-backend',
     name: 'Elixir Backend',
     category: 'backend',

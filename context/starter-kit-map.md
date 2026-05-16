@@ -97,6 +97,24 @@ Use when:
 - Building a Flowfull backend in Go.
 - The app needs fast APIs and explicit middleware.
 
+### `rust-backend`
+
+- Name: Rust Backend.
+- Category: backend.
+- Language: Rust.
+- Framework: Axum.
+- Repo: `pubflow/flowfull-rust-starter`.
+- Branch: `master`.
+- Install: `cargo fetch`.
+- Dev: `cargo run`.
+- Recommended helpers: Rust.
+- Client docs: https://clients.flowfull.dev/packages/rust.
+
+Use when:
+
+- Building a Flowfull backend in Rust.
+- The app needs Axum routes, Tokio runtime, SQLx, and explicit middleware.
+
 ### `elixir-backend`
 
 - Name: Elixir Backend.
@@ -126,6 +144,8 @@ Use `node-backend` when the user wants the most official TypeScript backend rout
 Use `python-backend` when the user prefers FastAPI or Python ecosystem tooling.
 
 Use `go-backend` when the user wants compiled backend performance and simple deployment.
+
+Use `rust-backend` when the user wants Rust/Axum, strong typing, and explicit async backend structure.
 
 Use `elixir-backend` when the user wants Phoenix conventions and Elixir concurrency.
 
