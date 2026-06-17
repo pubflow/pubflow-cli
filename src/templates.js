@@ -24,6 +24,18 @@ export const templates = [
     devCommand: 'npx expo start',
   },
   {
+    id: 'next',
+    name: 'Next.js',
+    category: 'frontend',
+    language: 'TypeScript',
+    framework: 'Next.js',
+    description: 'Next.js starter with Pubflow auth, 2FA, dashboard, i18n, and shadcn UI.',
+    repo: 'pubflow/next-flowfull-client',
+    branch: 'main',
+    installCommand: 'npm install',
+    devCommand: 'npm run dev',
+  },
+  {
     id: 'node-backend',
     name: 'Node.js Backend',
     category: 'backend',

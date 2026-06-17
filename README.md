@@ -83,6 +83,7 @@ pubflow create
 pubflow create python-backend my-api
 pubflow create rust-backend my-api
 pubflow create react my-web
+pubflow create next my-next-web
 pubflow create react-native my-mobile-app
 pubflow context init
 pubflow context init --full --all
@@ -161,6 +162,7 @@ Supported starter kits today:
 Frontend starters:
 
 - `react` - install with `bun install`, run with `bun run dev`
+- `next` - install with `npm install`, run with `npm run dev`
 - `react-native` - install with `npm install`, run with `npx expo start`
 
 Backend starters:

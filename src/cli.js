@@ -216,91 +216,145 @@ program.parseAsync(process.argv).catch((error) => {
 async function runInit(options) {
   printHeader();
 
-  const pathAnswer = await prompts({
-    type: 'select',
-    name: 'path',
-    message: 'What are you working on?',
-    choices: [
-      {
-        title: 'New project',
-        description: 'Create a Pubflow starter kit.',
-        value: 'new',
-      },
-      {
-        title: 'Current project',
-        description: 'Add Pubflow pieces to this existing project.',
-        value: 'current',
-      },
-    ],
-  });
+  while (true) {
+    const pathAnswer = await prompts({
+      type: 'select',
+      name: 'path',
+      message: 'What are you working on?',
+      choices: [
+        {
+          title: 'New project',
+          description: 'Create a Pubflow starter kit.',
+          value: 'new',
+        },
+        {
+          title: 'Current project',
+          description: 'Add Pubflow pieces to this existing project.',
+          value: 'current',
+        },
+      ],
+    });
 
-  if (!pathAnswer.path) return;
-  if (pathAnswer.path === 'current') {
-    await runExistingProjectInit(options);
-    return;
+    if (!pathAnswer.path) return;
+    if (pathAnswer.path === 'current') {
+      await runExistingProjectInit(options);
+      return;
+    }
+
+    const result = await runNewProjectInit(options);
+    if (result !== 'back') return;
   }
-
-  await runNewProjectInit(options);
 }
 
 async function runNewProjectInit(options) {
-  const categoryAnswer = await prompts({
+  let category;
+  let templateId;
+  let projectName;
+  let step = 'category';
+
+  while (true) {
+    if (step === 'category') {
+      const categoryAnswer = await prompts({
+        type: 'select',
+        name: 'category',
+        message: 'What do you want to create?',
+        choices: [
+          { title: 'Frontend starter', value: 'frontend' },
+          { title: 'Backend starter', value: 'backend' },
+          { title: 'Back', description: 'Return to the previous menu.', value: '__back' },
+        ],
+      });
+
+      if (!categoryAnswer.category) return;
+      if (categoryAnswer.category === '__back') return 'back';
+      category = categoryAnswer.category;
+      step = 'template';
+    }
+
+    if (step === 'template') {
+      const categoryTemplates = getTemplatesByCategory(category);
+      const templateAnswer = await prompts({
+        type: 'select',
+        name: 'templateId',
+        message: 'Choose a starter kit',
+        choices: [
+          ...categoryTemplates.map((template) => ({
+            title: `${template.name} - ${template.framework}`,
+            description: template.description,
+            value: template.id,
+          })),
+          { title: 'Back', description: 'Return to starter type.', value: '__back' },
+        ],
+      });
+
+      if (!templateAnswer.templateId) return;
+      if (templateAnswer.templateId === '__back') {
+        step = 'category';
+        continue;
+      }
+      templateId = templateAnswer.templateId;
+      step = 'name';
+    }
+
+    if (step === 'name') {
+      const nameAnswer = await prompts({
+        type: 'text',
+        name: 'projectName',
+        message: 'Project name',
+        initial: projectName || suggestProjectName(templateId),
+        hint: 'Type < to go back.',
+        validate: (value) => (value === '<' ? true : validateProjectName(value)),
+      });
+
+      if (!nameAnswer.projectName) return;
+      if (nameAnswer.projectName === '<') {
+        step = 'template';
+        continue;
+      }
+      projectName = nameAnswer.projectName;
+      step = 'setup';
+    }
+
+    if (step === 'setup') {
+      const install = options.install === false ? false : await askBooleanWithBack('Install dependencies after creating the project?', true);
+      if (install === undefined) return;
+      if (install === '__back') {
+        step = 'name';
+        continue;
+      }
+
+      const git = options.git === false ? false : await askBooleanWithBack('Initialize a new git repository?', true);
+      if (git === undefined) return;
+      if (git === '__back') {
+        step = 'name';
+        continue;
+      }
+
+      await createProject({
+        template: getTemplate(templateId),
+        projectName,
+        install,
+        git,
+      });
+      return;
+    }
+  }
+}
+
+async function askBooleanWithBack(message, initial = true) {
+  const answer = await prompts({
     type: 'select',
-    name: 'category',
-    message: 'What do you want to create?',
+    name: 'value',
+    message,
+    initial: initial ? 0 : 1,
     choices: [
-      { title: 'Frontend starter', value: 'frontend' },
-      { title: 'Backend starter', value: 'backend' },
+      { title: 'Yes', value: true },
+      { title: 'No', value: false },
+      { title: 'Back', description: 'Return to the previous step.', value: '__back' },
     ],
   });
 
-  if (!categoryAnswer.category) return;
-
-  const categoryTemplates = getTemplatesByCategory(categoryAnswer.category);
-  const templateAnswer = await prompts({
-    type: 'select',
-    name: 'templateId',
-    message: 'Choose a starter kit',
-    choices: categoryTemplates.map((template) => ({
-      title: `${template.name} - ${template.framework}`,
-      description: template.description,
-      value: template.id,
-    })),
-  });
-
-  if (!templateAnswer.templateId) return;
-
-  const nameAnswer = await prompts({
-    type: 'text',
-    name: 'projectName',
-    message: 'Project name',
-    initial: suggestProjectName(templateAnswer.templateId),
-    validate: validateProjectName,
-  });
-
-  if (!nameAnswer.projectName) return;
-
-  const setupAnswer = await prompts([
-    {
-      type: options.install === false ? null : 'confirm',
-      name: 'install',
-      message: 'Install dependencies after creating the project?',
-      initial: true,
-    },
-    {
-      type: options.git === false ? null : 'confirm',
-      name: 'git',
-      message: 'Initialize a new git repository?',
-      initial: true,
-    },
-  ]);
-
-  await createProject({
-    template: getTemplate(templateAnswer.templateId),
-    projectName: nameAnswer.projectName,
-    install: options.install === false ? false : setupAnswer.install,
-    git: options.git === false ? false : setupAnswer.git,
-  });
+  return answer.value;
 }
 
 async function runExistingProjectInit(options) {
@@ -2268,6 +2322,7 @@ function validateProjectName(value) {
 }
 
 function suggestProjectName(templateId) {
+  if (templateId === 'next') return 'next-flowfull-client';
   return templateId.replace(/-backend$/, '-api');
 }
 

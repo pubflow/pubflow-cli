@@ -23,6 +23,25 @@ Use when:
 - The app needs Pubflow frontend integration.
 - The backend can be existing or created separately.
 
+### `next`
+
+- Name: Next.js.
+- Category: frontend.
+- Language: TypeScript.
+- Framework: Next.js.
+- Repo: `pubflow/next-flowfull-client`.
+- Branch: `main`.
+- Install: `npm install`.
+- Dev: `npm run dev`.
+- Recommended client: React.
+- Client docs: https://clients.flowfull.dev/packages/react.
+
+Use when:
+
+- Building a Next.js app.
+- The app needs Pubflow auth, 2FA, dashboard, i18n, and shadcn UI from the starter.
+- The backend can be existing or created separately.
+
 ### `react-native`
 
 - Name: React Native Expo.
@@ -136,6 +155,8 @@ Use when:
 ## Selection Guidance
 
 Use `react` for web UI.
+
+Use `next` for Next.js web UI.
 
 Use `react-native` for mobile UI.
 

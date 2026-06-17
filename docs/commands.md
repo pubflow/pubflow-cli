@@ -33,6 +33,7 @@ Direct flow:
 
 ```bash
 pubflow create react my-web
+pubflow create next my-next-web
 pubflow create react-native my-mobile
 pubflow create node-backend my-api
 pubflow create python-backend my-api
