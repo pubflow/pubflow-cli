@@ -95,10 +95,30 @@ export const templates = [
     installCommand: 'mix deps.get',
     devCommand: 'mix phx.server',
   },
+  {
+    id: 'native',
+    name: 'Pubflow Native',
+    category: 'fullstack',
+    language: 'TypeScript',
+    framework: 'Hono + React',
+    description: 'Fullstack TypeScript: React pages and Hono APIs in one process.',
+    repo: 'pubflow/native',
+    branch: 'master',
+    rootDir: 'starter',
+    installCommand: 'bun install',
+    devCommand: 'bun run dev',
+  },
 ];
 
+const TEMPLATE_ALIASES = {
+  flowloft: 'native',
+  flowstack: 'native',
+  'pubflow-native': 'native',
+};
+
 export function getTemplate(id) {
-  return templates.find((template) => template.id === id);
+  const resolved = TEMPLATE_ALIASES[id] || id;
+  return templates.find((template) => template.id === resolved);
 }
 
 export function getTemplatesByCategory(category) {

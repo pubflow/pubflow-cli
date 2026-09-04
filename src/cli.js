@@ -165,6 +165,22 @@ addCommand
     await runAddMiddleware(options);
   });
 
+addCommand
+  .command('pages')
+  .description('Add Pubflow Native pages to an existing Hono / flowfull-node app.')
+  .option('-y, --yes', 'Use detected defaults.')
+  .action(async (options) => {
+    await runAddPages(options);
+  });
+
+addCommand
+  .command('native')
+  .description('Adopt @pubflow/native in an existing Vite app.')
+  .option('-y, --yes', 'Use detected defaults.')
+  .action(async (options) => {
+    await runAddNative(options);
+  });
+
 program
   .command('list')
   .alias('ls')
@@ -261,6 +277,7 @@ async function runNewProjectInit(options) {
         choices: [
           { title: 'Frontend starter', value: 'frontend' },
           { title: 'Backend starter', value: 'backend' },
+          { title: 'Full-stack app', description: 'Pubflow Native — pages + API in one process.', value: 'fullstack' },
           { title: 'Back', description: 'Return to the previous menu.', value: '__back' },
         ],
       });
@@ -391,6 +408,16 @@ async function runExistingProjectInit(options) {
         description: 'Add backend middleware for Bridge Validation.',
         value: 'middleware',
       },
+      {
+        title: 'Pages (Pubflow Native)',
+        description: 'Add React pages on an existing Hono / flowfull-node app.',
+        value: 'pages',
+      },
+      {
+        title: 'Native (Vite)',
+        description: 'Adopt @pubflow/native when Vite is already in the project.',
+        value: 'native',
+      },
     ],
     hint: '- Space to select. Enter to continue.',
   });
@@ -408,6 +435,12 @@ async function runExistingProjectInit(options) {
   }
   if (answer.actions.includes('middleware')) {
     await runAddMiddleware({ yes: true });
+  }
+  if (answer.actions.includes('pages')) {
+    await runAddPages({ yes: true });
+  }
+  if (answer.actions.includes('native')) {
+    await runAddNative({ yes: true });
   }
 
   console.log('');
@@ -682,6 +715,207 @@ async function runAddMiddleware(options) {
   printHintLines(getHintsTopic('middleware'));
 }
 
+async function readProjectDeps(projectDir) {
+  const packageJsonPath = path.join(projectDir, 'package.json');
+  if (!(await fs.pathExists(packageJsonPath))) return { packageJson: null, deps: {} };
+  const packageJson = await fs.readJson(packageJsonPath).catch(() => null);
+  return { packageJson, deps: { ...packageJson?.dependencies, ...packageJson?.devDependencies } };
+}
+
+async function hasViteConfig(projectDir) {
+  const names = ['vite.config.ts', 'vite.config.js', 'vite.config.mts', 'vite.config.mjs'];
+  for (const name of names) {
+    if (await fs.pathExists(path.join(projectDir, name))) return name;
+  }
+  return null;
+}
+
+async function ensureNativeDependencies(projectDir) {
+  const packageJsonPath = path.join(projectDir, 'package.json');
+  if (!(await fs.pathExists(packageJsonPath))) {
+    throw new Error('package.json was not found in the current directory.');
+  }
+  const packageJson = await fs.readJson(packageJsonPath);
+  packageJson.dependencies = {
+    ...packageJson.dependencies,
+    '@pubflow/native': packageJson.dependencies?.['@pubflow/native'] || '^0.1.0',
+    '@tanstack/react-router': packageJson.dependencies?.['@tanstack/react-router'] || '^1.131.0',
+    hono: packageJson.dependencies?.hono || '^4.9.0',
+    react: packageJson.dependencies?.react || '^19.1.0',
+    'react-dom': packageJson.dependencies?.['react-dom'] || '^19.1.0',
+  };
+  packageJson.devDependencies = {
+    ...packageJson.devDependencies,
+    vite: packageJson.devDependencies?.vite || packageJson.dependencies?.vite || '^7.1.0',
+  };
+  packageJson.scripts = {
+    ...packageJson.scripts,
+    dev: packageJson.scripts?.dev || 'vite',
+    'dev:pages': 'vite',
+    build: packageJson.scripts?.build || 'vite build && vite build --ssr',
+  };
+  await fs.writeJson(packageJsonPath, packageJson, { spaces: 2 });
+}
+
+async function writeNativeViteConfig(projectDir) {
+  const existing = await hasViteConfig(projectDir);
+  if (existing) {
+    const filePath = path.join(projectDir, existing);
+    const source = await fs.readFile(filePath, 'utf8');
+    if (source.includes('@pubflow/native/vite')) {
+      console.log(`${colors.dim('Kept:')} ${existing} (already uses Pubflow Native)`);
+      return;
+    }
+    if (!source.includes('native()') && source.includes('plugins:')) {
+      const next = source.includes("from '@pubflow/native/vite'")
+        ? source
+        : `import native from '@pubflow/native/vite'\n${source.replace(/plugins:\s*\[/, 'plugins: [native(), ') }`;
+      await fs.writeFile(filePath, next);
+      console.log(`${colors.dim('Updated:')} ${existing}`);
+      return;
+    }
+    console.log(colors.yellow(`Could not auto-inject native() into ${existing}. Add plugins: [native()] manually.`));
+    return;
+  }
+
+  await fs.writeFile(
+    path.join(projectDir, 'vite.config.ts'),
+    `import { defineConfig } from 'vite'\nimport native from '@pubflow/native/vite'\n\nexport default defineConfig({\n  plugins: [native()],\n})\n`,
+  );
+  console.log(`${colors.dim('Created:')} vite.config.ts`);
+}
+
+async function writeStarterPages(projectDir) {
+  const layoutPath = path.join(projectDir, 'app', 'pages', 'layout.tsx');
+  const indexPath = path.join(projectDir, 'app', 'pages', 'index.tsx');
+  await fs.ensureDir(path.dirname(indexPath));
+  if (!(await fs.pathExists(layoutPath))) {
+    await fs.writeFile(
+      layoutPath,
+      `export default function Layout({ children }: { children: React.ReactNode }) {\n  return <div>{children}</div>\n}\n`,
+    );
+    console.log(`${colors.dim('Created:')} app/pages/layout.tsx`);
+  }
+  if (!(await fs.pathExists(indexPath))) {
+    await fs.writeFile(
+      indexPath,
+      `export default function HomePage() {\n  return (\n    <main>\n      <h1>Pubflow Native pages</h1>\n      <p>Replace this screen. API routes in src/ remain untouched.</p>\n    </main>\n  )\n}\n`,
+    );
+    console.log(`${colors.dim('Created:')} app/pages/index.tsx`);
+  }
+  if (!(await fs.pathExists(path.join(projectDir, 'index.html')))) {
+    await fs.writeFile(
+      path.join(projectDir, 'index.html'),
+      `<!doctype html>\n<html lang="en">\n  <head>\n    <meta charset="UTF-8" />\n    <meta name="viewport" content="width=device-width, initial-scale=1.0" />\n    <title>Pubflow Native</title>\n  </head>\n  <body>\n    <div id="root"><!--ssr-outlet--></div>\n  </body>\n</html>\n`,
+    );
+    console.log(`${colors.dim('Created:')} index.html`);
+  }
+}
+
+async function patchFlowfullApp(projectDir) {
+  const appPath = path.join(projectDir, 'src', 'app.ts');
+  if (!(await fs.pathExists(appPath))) return false;
+  const source = await fs.readFile(appPath, 'utf8');
+  if (source.includes('@pubflow/native/pages')) {
+    console.log(`${colors.dim('Kept:')} src/app.ts (pages() already mounted)`);
+    return true;
+  }
+  if (!source.includes('app.notFound')) {
+    console.log(colors.yellow('src/app.ts has no notFound handler. Mount pages() yourself: app.all(\'*\', pages()).'));
+    return false;
+  }
+  let next = source;
+  if (!next.includes("from '@pubflow/native/pages'")) {
+    next = `import { pages } from '@pubflow/native/pages'\n${next}`;
+  }
+  next = next.replace(
+    'app.notFound',
+    `app.all('*', async (c, next) => {\n  const pathName = c.req.path;\n  if (pathName.startsWith('/api') || pathName.startsWith('/health') || pathName.startsWith('/bridge') || pathName === '/openapi.json') {\n    return next();\n  }\n  return pages()(c, next);\n});\n\napp.notFound`,
+  );
+  await fs.writeFile(appPath, next);
+  console.log(`${colors.dim('Updated:')} src/app.ts (pages() before JSON 404)`);
+  return true;
+}
+
+async function runAddPages(options) {
+  printHeader();
+  const projectDir = process.cwd();
+  const { deps } = await readProjectDeps(projectDir);
+  const hasHono = Boolean(deps.hono);
+  const hasApp = await fs.pathExists(path.join(projectDir, 'src', 'app.ts'));
+
+  if (!hasHono && !hasApp) {
+    console.log(colors.red('pubflow add pages expects a Hono / flowfull-node project (hono in package.json or src/app.ts).'));
+    console.log('For a Vite SPA, use `pubflow add native` instead.');
+    return;
+  }
+
+  const confirmed = options.yes
+    ? true
+    : (
+        await prompts({
+          type: 'confirm',
+          name: 'confirmed',
+          message: 'Add Pubflow Native pages without moving src/routes?',
+          initial: true,
+        })
+      ).confirmed;
+  if (!confirmed) return;
+
+  await writeStarterPages(projectDir);
+  await writeNativeViteConfig(projectDir);
+  await ensureNativeDependencies(projectDir);
+  await patchFlowfullApp(projectDir);
+  if (!(await fs.pathExists(path.join(projectDir, 'pubflow.config.ts')))) {
+    await fs.writeFile(
+      path.join(projectDir, 'pubflow.config.ts'),
+      `export default {\n  auth: { provider: 'flowless' },\n  runtime: 'bun',\n}\n`,
+    );
+    console.log(`${colors.dim('Created:')} pubflow.config.ts`);
+  }
+
+  console.log('');
+  console.log(colors.green('Pages added. Existing Hono routes were not moved.'));
+  console.log('Run `vite` or `bun run dev:pages` for the UI. Keep serving /api from your Hono app.');
+}
+
+async function runAddNative(options) {
+  printHeader();
+  const projectDir = process.cwd();
+  const { deps } = await readProjectDeps(projectDir);
+  const viteConfig = await hasViteConfig(projectDir);
+  if (!deps.vite && !viteConfig) {
+    console.log(colors.red('pubflow add native requires Vite in this project.'));
+    console.log('Install Vite first, or run `pubflow create native` for a new app.');
+    console.log('`pubflow doctor` lists whether vite / react / hono are present.');
+    return;
+  }
+
+  const confirmed = options.yes
+    ? true
+    : (
+        await prompts({
+          type: 'confirm',
+          name: 'confirmed',
+          message: 'Install @pubflow/native and add app/pages?',
+          initial: true,
+        })
+      ).confirmed;
+  if (!confirmed) return;
+
+  await writeStarterPages(projectDir);
+  await writeNativeViteConfig(projectDir);
+  await ensureNativeDependencies(projectDir);
+  if (!(await fs.pathExists(path.join(projectDir, 'pubflow.config.ts')))) {
+    await fs.writeFile(
+      path.join(projectDir, 'pubflow.config.ts'),
+      `export default {\n  auth: { provider: 'flowless' },\n  runtime: 'bun',\n}\n`,
+    );
+  }
+  console.log('');
+  console.log(colors.green('Pubflow Native wired into this Vite project.'));
+}
+
 async function runInspect() {
   printHeader();
 
@@ -846,6 +1080,11 @@ async function downloadAndExtract(template, destination) {
     strip: 1,
   });
 
+  if (template.rootDir) {
+    const nested = path.join(extractDir, template.rootDir);
+    if (await fs.pathExists(nested)) return nested;
+  }
+
   return extractDir;
 }
 
@@ -959,6 +1198,9 @@ async function detectProjectInfo(projectDir) {
     }
     if (deps?.next) {
       return { ...info, label: 'Next.js project', kind: 'frontend', framework: 'nextjs' };
+    }
+    if (deps?.['@pubflow/native'] || (await fs.pathExists(path.join(projectDir, 'pubflow.config.ts')))) {
+      return { ...info, label: 'Pubflow Native project', kind: 'fullstack', framework: 'native' };
     }
     if (deps?.react) {
       return { ...info, label: 'React project', kind: 'frontend', framework: 'react' };
@@ -1118,6 +1360,7 @@ function printTemplates() {
   printHeader();
   printCategory('Frontend starters', getTemplatesByCategory('frontend'));
   printCategory('Backend starters', getTemplatesByCategory('backend'));
+  printCategory('Full-stack', getTemplatesByCategory('fullstack'));
 }
 
 function printCategory(title, categoryTemplates) {
@@ -1127,28 +1370,6 @@ function printCategory(title, categoryTemplates) {
     console.log(`  ${colors.dim(' '.repeat(16) + template.description)}`);
   }
   console.log('');
-}
-
-async function runDoctor() {
-  printHeader();
-
-  const checks = [
-    ['node', ['--version'], 'Node.js 18+'],
-    ['npm', ['--version'], 'npm'],
-    ['bun', ['--version'], 'Bun'],
-    ['git', ['--version'], 'git'],
-    ['python', ['--version'], 'Python'],
-    ['go', ['version'], 'Go'],
-    ['cargo', ['--version'], 'Cargo'],
-    ['rustc', ['--version'], 'Rust compiler'],
-    ['mix', ['--version'], 'Elixir Mix'],
-  ];
-
-  for (const [command, args, label] of checks) {
-    const result = await commandWorks(command, args);
-    const icon = result.ok ? colors.green('ok') : colors.yellow('missing');
-    console.log(`${icon.padEnd(16)} ${label}${result.output ? colors.dim(` - ${result.output}`) : ''}`);
-  }
 }
 
 function commandWorks(command, args) {
@@ -1173,6 +1394,52 @@ function commandWorks(command, args) {
       });
     });
   });
+}
+
+async function runDoctor() {
+  printHeader();
+
+  const checks = [
+    ['node', ['--version'], 'Node.js 18+'],
+    ['npm', ['--version'], 'npm'],
+    ['bun', ['--version'], 'Bun'],
+    ['git', ['--version'], 'git'],
+    ['python', ['--version'], 'Python'],
+    ['go', ['version'], 'Go'],
+    ['cargo', ['--version'], 'Cargo'],
+    ['rustc', ['--version'], 'Rust compiler'],
+    ['mix', ['--version'], 'Elixir Mix'],
+  ];
+
+  for (const [command, args, label] of checks) {
+    const result = await commandWorks(command, args);
+    const icon = result.ok ? colors.green('ok') : colors.yellow('missing');
+    console.log(`${icon.padEnd(16)} ${label}${result.output ? colors.dim(` - ${result.output}`) : ''}`);
+  }
+
+  const packageJsonPath = path.join(process.cwd(), 'package.json');
+  if (await fs.pathExists(packageJsonPath)) {
+    const packageJson = await fs.readJson(packageJsonPath).catch(() => ({}));
+    const deps = { ...packageJson.dependencies, ...packageJson.devDependencies };
+    console.log('');
+    console.log(colors.bold('Current project'));
+    printDepCheck(deps, 'vite', 'Vite');
+    printDepCheck(deps, 'react', 'React');
+    printDepCheck(deps, 'hono', 'Hono');
+    printDepCheck(deps, '@pubflow/native', 'Pubflow Native');
+    if (deps.react && !String(deps.react).includes('19')) {
+      console.log(`${colors.yellow('warn').padEnd(16)} React 19 is recommended for Pubflow Native`);
+    }
+  }
+}
+
+function printDepCheck(deps, name, label) {
+  const version = deps?.[name];
+  if (version) {
+    console.log(`${colors.green('ok').padEnd(16)} ${label}${colors.dim(` - ${version}`)}`);
+  } else {
+    console.log(`${colors.yellow('missing').padEnd(16)} ${label}`);
+  }
 }
 
 function printHeader() {
@@ -2323,6 +2590,7 @@ function validateProjectName(value) {
 
 function suggestProjectName(templateId) {
   if (templateId === 'next') return 'next-flowfull-client';
+  if (templateId === 'native') return 'my-native-app';
   return templateId.replace(/-backend$/, '-api');
 }
 
