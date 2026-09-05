@@ -6,8 +6,12 @@ You can use either binary:
 
 ```bash
 pubflow init
+pubflow start
 pbfl init
+pbfl start
 ```
+
+`pubflow start` is a full alias of `pubflow create`.
 
 ## Create A Project
 
@@ -15,9 +19,11 @@ Guided flow:
 
 ```bash
 pubflow init
+pubflow start
+pubflow create
 ```
 
-`pubflow init` asks whether you want a new project or want to add Pubflow to the current project.
+`pubflow init` asks whether you want a new project or want to add Pubflow to the current project. `pubflow start` and `pubflow create` with no template do the same guided create path.
 
 For a new project, it opens the starter selector.
 
@@ -27,25 +33,24 @@ Project-only guided flow:
 
 ```bash
 pubflow create
+pubflow start
 ```
 
-Direct flow:
+Direct flow (`create` and `start` are the same command):
 
 ```bash
 pubflow create react my-web
-pubflow create next my-next-web
-pubflow create react-native my-mobile
-pubflow create node-backend my-api
-pubflow create python-backend my-api
-pubflow create go-backend my-api
-pubflow create rust-backend my-api
-pubflow create elixir-backend my-api
+pubflow start native my-app
+pubflow create native my-app
+pubflow create native-minimal my-app
+pubflow create native-custom-hono my-app
 ```
 
-Skip setup steps:
+Skip setup steps (same flags on `start`):
 
 ```bash
 pubflow create python-backend my-api --no-install --no-git
+pubflow start python-backend my-api --no-install --no-git
 ```
 
 ## List Starters
@@ -54,7 +59,7 @@ pubflow create python-backend my-api --no-install --no-git
 pubflow list
 ```
 
-Shows supported frontend and backend starter kits.
+Shows supported frontend, backend, and Native starter kits.
 
 ## Add AI Context
 
@@ -164,6 +169,22 @@ Rust middleware is generated for Axum and may require:
 ```bash
 cargo add axum chrono reqwest serde serde_json thiserror tower
 ```
+
+## Add shadcn (Native)
+
+```bash
+pubflow add shadcn
+```
+
+On Default Native (`components.json` already there) this command only prints: use `npx shadcn@latest add <name>`.
+
+On Minimal / Custom Hono it adds Tailwind v4, `app/styles.css`, `cn()`, `tsconfig` `@/*`, and `components.json` pointing at `app/` — then you run the official CLI:
+
+```bash
+npx shadcn@latest add button
+```
+
+Do not run `npx shadcn init -t vite` or `-t start` on a Native app.
 
 ## Flowless And Flowfull Flow
 

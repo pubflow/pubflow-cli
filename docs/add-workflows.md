@@ -30,6 +30,12 @@ Add Bridge Validation middleware:
 pubflow add middleware
 ```
 
+Add shadcn scaffold on Native (Minimal / Custom Hono):
+
+```bash
+pubflow add shadcn
+```
+
 Check the project:
 
 ```bash
@@ -191,6 +197,16 @@ requireAdmin()
 ```
 
 Exact helper names vary by language/framework, but the pattern is the same.
+
+## Add shadcn (Native)
+
+```bash
+pubflow add shadcn
+```
+
+If `components.json` exists, it tells you to use `npx shadcn@latest add <name>`. Otherwise it scaffolds Tailwind v4 + Native `app/` aliases so the official shadcn CLI works. It does not wrap `shadcn add` or install individual components.
+
+Do not run `npx shadcn init -t vite` or `-t start` on Native.
 
 ## Detection
 

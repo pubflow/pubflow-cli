@@ -81,6 +81,7 @@ program
 
 program
   .command('create')
+  .alias('start')
   .description('Create a project from a Pubflow starter kit.')
   .argument('[template]', 'Template id, for example python-backend or react.')
   .argument('[name]', 'Project directory name.')
@@ -179,6 +180,14 @@ addCommand
   .option('-y, --yes', 'Use detected defaults.')
   .action(async (options) => {
     await runAddNative(options);
+  });
+
+addCommand
+  .command('shadcn')
+  .description('Add Tailwind + shadcn components.json for Pubflow Native (then use npx shadcn add).')
+  .option('-y, --yes', 'Use detected defaults.')
+  .action(async (options) => {
+    await runAddShadcn(options);
   });
 
 program
@@ -293,7 +302,7 @@ async function runNewProjectInit(options) {
       const templateAnswer = await prompts({
         type: 'select',
         name: 'templateId',
-        message: 'Choose a starter kit',
+        message: category === 'fullstack' ? 'Choose a Native starter' : 'Choose a starter kit',
         choices: [
           ...categoryTemplates.map((template) => ({
             title: `${template.name} - ${template.framework}`,
@@ -418,6 +427,11 @@ async function runExistingProjectInit(options) {
         description: 'Adopt @pubflow/native when Vite is already in the project.',
         value: 'native',
       },
+      {
+        title: 'shadcn/ui (Native)',
+        description: 'Tailwind + components.json if missing. Then npx shadcn add.',
+        value: 'shadcn',
+      },
     ],
     hint: '- Space to select. Enter to continue.',
   });
@@ -441,6 +455,9 @@ async function runExistingProjectInit(options) {
   }
   if (answer.actions.includes('native')) {
     await runAddNative({ yes: true });
+  }
+  if (answer.actions.includes('shadcn')) {
+    await runAddShadcn({ yes: true });
   }
 
   console.log('');
@@ -916,6 +933,220 @@ async function runAddNative(options) {
   console.log(colors.green('Pubflow Native wired into this Vite project.'));
 }
 
+const nativeShadcnStylesPath = path.join(__dirname, 'native-shadcn-styles.css');
+
+async function runAddShadcn(options) {
+  printHeader();
+  const projectDir = process.cwd();
+  const componentsJsonPath = path.join(projectDir, 'components.json');
+
+  if (await fs.pathExists(componentsJsonPath)) {
+    console.log(colors.green('This project already has components.json.'));
+    console.log('Add components with the official CLI (not Pubflow):');
+    console.log('');
+    console.log('  npx shadcn@latest add dialog');
+    console.log('  npx shadcn@latest add sonner dropdown-menu');
+    console.log('');
+    console.log(colors.dim('Do not run init -t vite or init -t start on a Native app.'));
+    return;
+  }
+
+  const viteConfig = await hasViteConfig(projectDir);
+  const { packageJson } = await readProjectDeps(projectDir);
+  if (!packageJson && !viteConfig) {
+    console.log(colors.red('pubflow add shadcn expects a Pubflow Native app (package.json + vite.config).'));
+    console.log('Use `pubflow create native` for Default (shadcn already set up), or `native-minimal` then this command.');
+    return;
+  }
+
+  const confirmed = options.yes
+    ? true
+    : (
+        await prompts({
+          type: 'confirm',
+          name: 'confirmed',
+          message: 'Add Tailwind v4 + components.json so npx shadcn add works? (Native app/, not src/)',
+          initial: true,
+        })
+      ).confirmed;
+  if (!confirmed) return;
+
+  await ensureShadcnDependencies(projectDir);
+  await injectTailwindPlugin(projectDir);
+  await ensureTsconfigPaths(projectDir);
+  await writeNativeShadcnFiles(projectDir);
+
+  console.log('');
+  console.log(colors.green('shadcn scaffold ready for Native.'));
+  console.log('  bun install   # or npm install');
+  console.log('  npx shadcn@latest add button');
+  console.log(colors.dim('Do not run npx shadcn init -t vite / -t start.'));
+}
+
+async function ensureShadcnDependencies(projectDir) {
+  const packageJsonPath = path.join(projectDir, 'package.json');
+  if (!(await fs.pathExists(packageJsonPath))) {
+    throw new Error('package.json was not found in the current directory.');
+  }
+  const packageJson = await fs.readJson(packageJsonPath);
+  packageJson.dependencies = {
+    ...packageJson.dependencies,
+    'class-variance-authority': packageJson.dependencies?.['class-variance-authority'] || '^0.7.1',
+    clsx: packageJson.dependencies?.clsx || '^2.1.1',
+    'lucide-react': packageJson.dependencies?.['lucide-react'] || '^0.540.0',
+    shadcn: packageJson.dependencies?.shadcn || '^3.6.0',
+    'tailwind-merge': packageJson.dependencies?.['tailwind-merge'] || '^3.0.2',
+  };
+  packageJson.devDependencies = {
+    ...packageJson.devDependencies,
+    '@tailwindcss/vite': packageJson.devDependencies?.['@tailwindcss/vite'] || '^4.1.0',
+    tailwindcss: packageJson.devDependencies?.tailwindcss || '^4.1.0',
+    'tw-animate-css': packageJson.devDependencies?.['tw-animate-css'] || '^1.3.6',
+  };
+  await fs.writeJson(packageJsonPath, packageJson, { spaces: 2 });
+  console.log(`${colors.dim('Updated:')} package.json (Tailwind + shadcn deps)`);
+}
+
+async function injectTailwindPlugin(projectDir) {
+  const existing = await hasViteConfig(projectDir);
+  if (!existing) {
+    await fs.writeFile(
+      path.join(projectDir, 'vite.config.ts'),
+      `import { defineConfig } from 'vite'\nimport native from '@pubflow/native/vite'\nimport tailwind from '@tailwindcss/vite'\n\nexport default defineConfig({\n  plugins: [native(), tailwind()],\n  server: { port: 3000 },\n})\n`,
+    );
+    console.log(`${colors.dim('Created:')} vite.config.ts`);
+    return;
+  }
+
+  const filePath = path.join(projectDir, existing);
+  const source = await fs.readFile(filePath, 'utf8');
+  if (source.includes('@tailwindcss/vite') && source.includes('tailwind()')) {
+    console.log(`${colors.dim('Kept:')} ${existing} (already uses Tailwind)`);
+    return;
+  }
+
+  let next = source;
+  if (!next.includes('@tailwindcss/vite')) {
+    next = `import tailwind from '@tailwindcss/vite'\n${next}`;
+  }
+  if (next.includes('native()') && !next.includes('tailwind()')) {
+    next = next.replace('native()', 'native(), tailwind()');
+  } else if (next.includes('plugins:') && !next.includes('tailwind()')) {
+    next = next.replace(/plugins:\s*\[/, 'plugins: [tailwind(), ');
+  }
+
+  if (next === source) {
+    console.log(colors.yellow(`Could not auto-inject tailwind() into ${existing}. Add plugins: [native(), tailwind()] manually.`));
+    return;
+  }
+
+  await fs.writeFile(filePath, next);
+  console.log(`${colors.dim('Updated:')} ${existing}`);
+}
+
+async function ensureTsconfigPaths(projectDir) {
+  const filePath = path.join(projectDir, 'tsconfig.json');
+  if (!(await fs.pathExists(filePath))) {
+    await fs.writeJson(
+      filePath,
+      {
+        compilerOptions: {
+          target: 'ES2022',
+          lib: ['ES2022', 'DOM', 'DOM.Iterable'],
+          module: 'ESNext',
+          moduleResolution: 'bundler',
+          jsx: 'react-jsx',
+          strict: true,
+          skipLibCheck: true,
+          noEmit: true,
+          baseUrl: '.',
+          paths: { '@/*': ['./app/*'] },
+        },
+        include: ['app', 'vite.config.ts'],
+      },
+      { spaces: 2 },
+    );
+    console.log(`${colors.dim('Created:')} tsconfig.json`);
+    return;
+  }
+
+  const tsconfig = await fs.readJson(filePath).catch(() => null);
+  if (!tsconfig) {
+    console.log(colors.yellow('Could not parse tsconfig.json. Add baseUrl "." and paths "@/*": ["./app/*"].'));
+    return;
+  }
+  tsconfig.compilerOptions = tsconfig.compilerOptions || {};
+  tsconfig.compilerOptions.baseUrl = tsconfig.compilerOptions.baseUrl || '.';
+  tsconfig.compilerOptions.paths = tsconfig.compilerOptions.paths || { '@/*': ['./app/*'] };
+  if (!tsconfig.compilerOptions.paths['@/*']) {
+    tsconfig.compilerOptions.paths['@/*'] = ['./app/*'];
+  }
+  await fs.writeJson(filePath, tsconfig, { spaces: 2 });
+  console.log(`${colors.dim('Updated:')} tsconfig.json (baseUrl + @/*)`);
+}
+
+async function writeNativeShadcnFiles(projectDir) {
+  const stylesDest = path.join(projectDir, 'app', 'styles.css');
+  await fs.ensureDir(path.dirname(stylesDest));
+  if (!(await fs.pathExists(stylesDest))) {
+    if (!(await fs.pathExists(nativeShadcnStylesPath))) {
+      throw new Error(`Native shadcn CSS template missing: ${nativeShadcnStylesPath}`);
+    }
+    await fs.copy(nativeShadcnStylesPath, stylesDest);
+    console.log(`${colors.dim('Created:')} app/styles.css`);
+  } else {
+    console.log(`${colors.dim('Kept:')} app/styles.css`);
+  }
+
+  const utilsPath = path.join(projectDir, 'app', 'lib', 'utils.ts');
+  await fs.ensureDir(path.dirname(utilsPath));
+  if (!(await fs.pathExists(utilsPath))) {
+    await fs.writeFile(
+      utilsPath,
+      `import { clsx, type ClassValue } from 'clsx'\nimport { twMerge } from 'tailwind-merge'\n\nexport function cn(...inputs: ClassValue[]) {\n  return twMerge(clsx(inputs))\n}\n`,
+    );
+    console.log(`${colors.dim('Created:')} app/lib/utils.ts`);
+  }
+
+  const componentsJson = {
+    $schema: 'https://ui.shadcn.com/schema.json',
+    style: 'radix-rhea',
+    rsc: false,
+    tsx: true,
+    tailwind: {
+      config: '',
+      css: 'app/styles.css',
+      baseColor: 'neutral',
+      cssVariables: true,
+      prefix: '',
+    },
+    iconLibrary: 'lucide',
+    aliases: {
+      components: '@/components',
+      utils: '@/lib/utils',
+      ui: '@/components/ui',
+      lib: '@/lib',
+      hooks: '@/hooks',
+    },
+  };
+  await fs.writeJson(path.join(projectDir, 'components.json'), componentsJson, { spaces: 2 });
+  console.log(`${colors.dim('Created:')} components.json`);
+
+  const htmlPath = path.join(projectDir, 'index.html');
+  if (await fs.pathExists(htmlPath)) {
+    const html = await fs.readFile(htmlPath, 'utf8');
+    if (!html.includes('/app/styles.css')) {
+      const next = html.includes('</head>')
+        ? html.replace('</head>', '    <link rel="stylesheet" href="/app/styles.css" />\n  </head>')
+        : html;
+      if (next !== html) {
+        await fs.writeFile(htmlPath, next);
+        console.log(`${colors.dim('Updated:')} index.html`);
+      }
+    }
+  }
+}
+
 async function runInspect() {
   printHeader();
 
@@ -1366,8 +1597,8 @@ function printTemplates() {
 function printCategory(title, categoryTemplates) {
   console.log(colors.bold(title));
   for (const template of categoryTemplates) {
-    console.log(`  ${colors.green(template.id.padEnd(16))} ${template.name} (${template.framework})`);
-    console.log(`  ${colors.dim(' '.repeat(16) + template.description)}`);
+    console.log(`  ${colors.green(template.id.padEnd(22))} ${template.name} (${template.framework})`);
+    console.log(`  ${colors.dim(' '.repeat(22) + template.description)}`);
   }
   console.log('');
 }
@@ -1753,7 +1984,7 @@ function getDocsTopic(topic = 'home') {
     },
     starters: {
       title: 'Starter Kits',
-      summary: 'Create frontend and backend projects from official Pubflow starter kits.',
+      summary: 'Create frontend, backend, and Native (one-process) projects from official Pubflow starter kits.',
       links: [
         { label: 'Library', url: 'https://www.pubflow.com/library' },
         { label: 'Ecosystem', url: 'https://www.pubflow.com/ecosystem' },
@@ -2591,6 +2822,8 @@ function validateProjectName(value) {
 function suggestProjectName(templateId) {
   if (templateId === 'next') return 'next-flowfull-client';
   if (templateId === 'native') return 'my-native-app';
+  if (templateId === 'native-minimal') return 'my-native-minimal';
+  if (templateId === 'native-custom-hono') return 'my-native-hono';
   return templateId.replace(/-backend$/, '-api');
 }
 

@@ -170,17 +170,34 @@ Use `rust-backend` when the user wants Rust/Axum, strong typing, and explicit as
 
 Use `elixir-backend` when the user wants Phoenix conventions and Elixir concurrency.
 
-## Full-Stack Future
+## Native (full-stack, one process)
 
-Future CLI full-stack creation can combine one frontend and one backend:
+Not `apps/web` + `apps/api`. Pages and Hono live in one app from `pubflow/native`.
 
-```txt
-my-app/
-  apps/
-    web/
-    api/
-  .pubflow/
-    context/
-```
+### `native`
 
-The root should include a README with commands to run both projects.
+- Name: Pubflow Native (Default).
+- Category: fullstack.
+- Repo: `pubflow/native`, extract `starter/`.
+- Install: `bun install`.
+- Dev: `bun run dev`.
+- Auth, Tailwind, Docker, Cloudflare (`wrangler.jsonc` in the app).
+
+### `native-minimal`
+
+- Extract `examples/minimal`.
+- No auth, no Tailwind.
+
+### `native-custom-hono`
+
+- Extract `examples/custom-hono-server`.
+- Aliases: `custom-hono`, `native-custom-hono-server`.
+- You own `app/server.ts`.
+
+Aliases for Default: `flowloft`, `flowstack`, `pubflow-native`.
+
+Use `native` for a complete app. Use `native-minimal` to start empty. Use `native-custom-hono` when you want to mount Hono yourself.
+
+## Two-folder fullstack
+
+A different product (`apps/web` + `apps/api`) is not Native. Do not confuse it with `pubflow create native`.

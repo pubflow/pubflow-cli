@@ -2,7 +2,29 @@
 
 Official Pubflow Platform CLI to create apps and manage projects.
 
-Use the guided flow or direct commands to start frontend and backend projects quickly.
+Use the guided flow or direct commands to start frontend, backend, and Native projects quickly.
+
+## Install
+
+Package: [`pubflow`](https://www.npmjs.com/package/pubflow). Bins: `pubflow` and `pbfl`. Node 18.17+.
+
+Global (pick the manager you use):
+
+```bash
+npm install -g pubflow
+pnpm add -g pubflow
+yarn global add pubflow
+bun add -g pubflow
+```
+
+One-shot (no global install):
+
+```bash
+npx pubflow start
+pnpm dlx pubflow start
+yarn dlx pubflow start
+bunx pubflow start
+```
 
 ## How Pubflow Apps Work
 
@@ -35,7 +57,9 @@ That means frontend starters can use Flowless auth and Flowfull APIs together wi
 
 ```bash
 pubflow init
+pubflow start
 pubflow create
+pubflow start <template> [name]
 pubflow create <template> [name]
 pubflow list
 pubflow doctor
@@ -49,6 +73,7 @@ pubflow add context
 pubflow add env
 pubflow add client [client]
 pubflow add middleware
+pubflow add shadcn
 pubflow inspect
 pubflow docs [topic]
 pubflow hints [topic]
@@ -58,11 +83,14 @@ You can also use the short alias:
 
 ```bash
 pbfl init
+pbfl start
 pbfl add env
 pbfl inspect
 ```
 
-`pubflow init` is the friendliest entry point. It asks whether you are starting a new project or adding Pubflow to the current project.
+`pubflow start` is a full alias of `pubflow create` (same templates and flags). `pubflow init`, `pubflow start`, and `pubflow create` with no template all open the guided selector. Direct: `pubflow start native my-app` is the same as `pubflow create native my-app`.
+
+`pubflow init` is the friendliest named entry for “new vs existing project”. It asks whether you are starting a new project or adding Pubflow to the current project.
 
 For a new project, it opens the starter selector.
 
@@ -73,18 +101,22 @@ AI context
 Env vars
 Flowfull client
 Bridge middleware
+Pages (Pubflow Native)
+Native (Vite)
+shadcn/ui (Native)
 ```
 
 ## Examples
 
 ```bash
 pubflow init
+pubflow start
 pubflow create
 pubflow create python-backend my-api
-pubflow create rust-backend my-api
-pubflow create react my-web
-pubflow create next my-next-web
-pubflow create react-native my-mobile-app
+pubflow start native my-app
+pubflow create native my-app
+pubflow create native-minimal my-app
+pubflow create native-custom-hono my-app
 pubflow context init
 pubflow context init --full --all
 pubflow add context
@@ -92,6 +124,7 @@ pubflow add env
 pubflow add client react
 pubflow add client rust
 pubflow add middleware
+pubflow add shadcn
 pubflow inspect
 pubflow docs bridge
 pubflow hints clients
@@ -172,6 +205,14 @@ Backend starters:
 - `go-backend` - install with `go mod download`, run with `go run cmd/server/main.go`
 - `rust-backend` - install with `cargo fetch`, run with `cargo run`
 - `elixir-backend` - install with `mix deps.get`, run with `mix phx.server`
+
+Full-stack (Pubflow Native — one process, not `apps/web` + `apps/api`):
+
+- `native` - Default (`starter/`). install with `bun install`, run with `bun run dev`
+- `native-minimal` - `examples/minimal`. install with `bun install`, run with `bun run dev`
+- `native-custom-hono` - `examples/custom-hono-server`. install with `bun install`, run with `bun run dev`
+
+Aliases: `flowloft`, `flowstack`, `pubflow-native` → `native`. `custom-hono`, `native-custom-hono-server` → `native-custom-hono`.
 
 ## Local Development
 
